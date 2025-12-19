@@ -1,0 +1,3 @@
+SECURE_ROUTE DEBUG: Method test_route called
+SECURE_ROUTE DEBUG: _validate_session returned: test_user, False
+SECURE_ROUTE DEBUG: Calling function with user = test_user

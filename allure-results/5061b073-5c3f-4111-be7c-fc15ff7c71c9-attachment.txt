@@ -1,0 +1,3 @@
+[32mINFO    [0m test-app:core.py:868 Logging initialized at level: INFO
+[32mINFO    [0m test-app:core.py:873 OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled.
+[32mINFO    [0m test-app:core.py:1084 Session validation - no valid sid, rejecting

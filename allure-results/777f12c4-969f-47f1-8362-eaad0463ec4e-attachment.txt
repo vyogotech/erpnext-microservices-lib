@@ -1,0 +1,14 @@
+[1m[31mERROR   [0m frappe_microservice.core:core.py:183 Error in hook failing_handler for Test Doc.before_insert: Hook failed
+Traceback (most recent call last):
+  File "/Users/varkrish/personal/frappe_ms_poc/frappe-microservice-lib/frappe_microservice/core.py", line 181, in run_hooks
+    hook(doc)
+  File "/Users/varkrish/personal/frappe_ms_poc/frappe-microservice-lib/tests/test_document_hooks.py", line 40, in failing_handler
+    raise ValueError("Hook failed")
+ValueError: Hook failed
+[1m[31mERROR   [0m frappe_microservice.core:core.py:183 Error in hook failing_handler for Test Doc.before_insert: Hook failed
+Traceback (most recent call last):
+  File "/Users/varkrish/personal/frappe_ms_poc/frappe-microservice-lib/frappe_microservice/core.py", line 181, in run_hooks
+    hook(doc)
+  File "/Users/varkrish/personal/frappe_ms_poc/frappe-microservice-lib/tests/test_document_hooks.py", line 40, in failing_handler
+    raise ValueError("Hook failed")
+ValueError: Hook failed

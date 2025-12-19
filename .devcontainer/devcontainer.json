@@ -1,0 +1,31 @@
+{
+    "name": "Frappe Microservice Lib Dev",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "devcontainer",
+    "workspaceFolder": "/workspaces/frappe-microservice-lib",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.debugpy",
+                "charliermarsh.ruff",
+                "njpwerner.autodocstring",
+                "tamasfe.even-better-toml",
+                "allure.allure-vscode"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.testing.pytestEnabled": true,
+                "python.testing.pytestArgs": [
+                    "tests"
+                ],
+                "python.analysis.extraPaths": [
+                    "${workspaceFolder}"
+                ]
+            }
+        }
+    },
+    "postCreateCommand": "pip install -e '.[dev]'",
+    "remoteUser": "root"
+}

@@ -1,0 +1,9 @@
+[32mINFO    [0m test-app:core.py:868 Logging initialized at level: INFO
+[32mINFO    [0m test-app:core.py:873 OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled.
+[32mINFO    [0m test-app:core.py:1185 SECURE_ROUTE DEBUG: Method test_route called
+[32mINFO    [0m test-app:core.py:1193 SECURE_ROUTE DEBUG: _validate_session returned: test_user, False
+[33mWARNING [0m test-app:core.py:1202 Session mismatch detected: frappe.session.user=<MagicMock name='mock.session.user' id='4626713440'>, validated=test_user. Fixing...
+[32mINFO    [0m frappe_microservice.get_user_tenant_id:core.py:45 Resolving tenant_id for user: test_user
+[32mINFO    [0m frappe_microservice.get_user_tenant_id:core.py:59 Found tenant_id '<MagicMock name='mock.db.sql().__getitem__().__getitem__()' id='4626605088'>' for user 'test_user'
+[32mINFO    [0m frappe_microservice.get_user_tenant_id:core.py:68 Successfully resolved tenant_id: <MagicMock name='mock.db.sql().__getitem__().__getitem__()' id='4626605088'> for user: test_user
+[33mWARNING [0m test-app:core.py:1236 Access denied in test_route: Custom forbidden message
