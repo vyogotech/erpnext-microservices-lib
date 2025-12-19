@@ -15,6 +15,22 @@ A Python framework for building secure, isolated Frappe microservices with prope
 
 ## Installation
 
+### Prerequisites
+
+This framework depends on Frappe and ERPNext. You'll need to install them first:
+
+```bash
+# Create a virtual environment
+python -m venv frappe-microservice-env
+source frappe-microservice-env/bin/activate  # On Windows: frappe-microservice-env\Scripts\activate
+
+# Install dependencies
+pip install frappe-framework
+pip install erpnext
+```
+
+### Install Frappe Microservice Framework
+
 ```bash
 pip install frappe-microservice
 ```
@@ -22,7 +38,8 @@ pip install frappe-microservice
 Or install from source:
 
 ```bash
-cd frappe-microservice-lib
+git clone https://github.com/vyogotech/erpnext-microservices-lib.git
+cd erpnext-microservices-lib
 pip install -e .
 ```
 
@@ -141,8 +158,6 @@ def get_user(user, user_id):
 - **Prevents Leaks**: Raises PermissionError if accessing other tenant's data
 - **Zero Boilerplate**: No manual tenant_id filtering needed
 
-See [TENANT_AWARE_DB_EXAMPLE.py](TENANT_AWARE_DB_EXAMPLE.py) for complete examples.
-
 ### Document Lifecycle Hooks (No Frappe Modifications!)
 
 Register hooks for document lifecycle events **without modifying Frappe core**. Perfect for microservices!
@@ -184,17 +199,18 @@ def validate_order_amount(doc):
 @app.secure_route('/orders', methods=['POST'])
 def create_order(user):
     from flask import request
-    
+
     tenant_id = get_user_tenant_id(user)
     app.set_tenant_id(tenant_id)
-    
+
     # All hooks run automatically during insert!
     doc = app.tenant_db.insert_doc('Sales Order', request.json)
-    
+
     return {"success": True, "name": doc.name}
 ```
 
 **Supported Hook Events:**
+
 - `before_validate` - Before validation starts
 - `validate` - During validation
 - `before_insert` - Before inserting into database
@@ -205,13 +221,12 @@ def create_order(user):
 - `after_delete` - After deleting document
 
 **Why Document Hooks?**
+
 - 🚫 **No Frappe Core Changes**: Works entirely in microservice layer
 - 🎯 **Microservice-Specific**: Each service has its own hooks
 - 🔧 **Full Control**: Easy to test and debug
 - 📝 **Clean Code**: Separate business logic from endpoints
 - 🔄 **Reusable**: Write once, applies to all operations
-
-See [DOCUMENT_HOOKS_EXAMPLES.py](DOCUMENT_HOOKS_EXAMPLES.py) for comprehensive examples.
 
 ### Traditional DocType Controllers
 
@@ -227,23 +242,23 @@ class SalesOrder(DocumentController):
         if not self.customer:
             self.throw("Customer is required")
         self.calculate_total()
-    
+
     def before_insert(self):
         """Set defaults"""
         if not self.status:
             self.status = 'Draft'
         if not self.order_date:
             self.order_date = frappe.utils.today()
-    
+
     def after_insert(self):
         """Post-creation tasks"""
         self.send_notification()
         self.update_customer_stats()
-    
+
     def calculate_total(self):
         """Reusable method"""
         self.grand_total = sum(item.amount for item in self.items)
-    
+
     def send_notification(self):
         print(f"Order {self.name} created")
 
@@ -263,6 +278,7 @@ def create_order(user):
 ```
 
 **Features:**
+
 - 🎯 **Traditional Pattern**: Familiar Frappe controller style
 - 📁 **One File Per DocType**: Clean code organization
 - 🔄 **Auto-Discovery**: Automatically loads from directory
@@ -271,10 +287,11 @@ def create_order(user):
 - 🧪 **Easy Testing**: Test controllers independently
 
 **File Naming Convention:**
+
 - `sales_order.py` → `Sales Order` DocType → `SalesOrder` class
 - `signup_user.py` → `Signup User` DocType → `SignupUser` class
 
-See [signup-service/](../signup-service/) for a complete example with controllers.
+Refer to the examples in the source code for complete implementation details.
 
 ## Configuration
 
@@ -377,11 +394,13 @@ Quick setup function for creating a microservice.
 
 ## Examples
 
-See the `examples/` directory for complete examples:
+Check the `tests/` and `features/` directories for practical examples:
 
-- `examples/signup-service/` - Multi-tenant user signup
-- `examples/orders-service/` - Order management with CRUD
-- `examples/notifications-service/` - Event-driven notifications
+- **Multi-tenant user management** - See test cases for user isolation patterns
+- **Order management with CRUD** - Example resource API implementations
+- **Document lifecycle hooks** - Hook registration and usage examples
+
+For more complex scenarios, refer to the BDD test features in the `features/` directory.
 
 ## Development
 
