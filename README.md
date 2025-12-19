@@ -24,18 +24,14 @@ This framework depends on Frappe and ERPNext. You'll need to install them first:
 python -m venv frappe-microservice-env
 source frappe-microservice-env/bin/activate  # On Windows: frappe-microservice-env\Scripts\activate
 
-# Install dependencies
-pip install frappe-framework
-pip install erpnext
+# Install dependencies from Git repositories (adjust version branch as needed)
+pip install git+https://github.com/frappe/frappe.git@version-15
+pip install git+https://github.com/frappe/erpnext.git@version-15
 ```
 
 ### Install Frappe Microservice Framework
 
-```bash
-pip install frappe-microservice
-```
-
-Or install from source:
+Install from source:
 
 ```bash
 git clone https://github.com/vyogotech/erpnext-microservices-lib.git
