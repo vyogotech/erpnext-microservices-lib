@@ -1,7 +1,8 @@
 # ============================================
 # STAGE 1: Builder (compile dependencies)
 # ============================================
-FROM python:3.11-slim AS builder
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim AS builder
 
 # Install ONLY build tools (will be discarded in final image)
 RUN apt-get update && \
@@ -17,6 +18,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # ARG for flexible versioning
+ARG PYTHON_VERSION=3.11
 ARG FRAPPE_VERSION=version-15
 ARG ERPNEXT_VERSION=version-15
 
@@ -64,7 +66,7 @@ RUN printf 'class Utils:\n    @staticmethod\n    def set_tenant_id(*args, **kwar
 # ============================================
 # STAGE 2: Runtime (Debian slim, stable wheels)
 # ============================================
-FROM python:3.11-slim
+FROM python:${PYTHON_VERSION}-slim
 
 # Install ONLY runtime dependencies (no build tools)
 RUN apt-get update && \
