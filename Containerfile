@@ -66,7 +66,7 @@ RUN printf 'class Utils:\n    @staticmethod\n    def set_tenant_id(*args, **kwar
 # ============================================
 # STAGE 2: Runtime (Debian slim, stable wheels)
 # ============================================
-FROM python:${PYTHON_VERSION}-slim
+FROM python:${PYTHON_TAG}-slim
 
 # Install ONLY runtime dependencies (no build tools)
 RUN apt-get update && \
