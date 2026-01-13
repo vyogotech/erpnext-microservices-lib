@@ -15,6 +15,15 @@ A Python framework for building secure, isolated Frappe microservices with prope
 
 ## Installation
 
+### Version Compatibility
+
+| Branch | Frappe/ERPNext Version | Python Version | Status |
+| :--- | :--- | :--- | :--- |
+| `main` | `version-15` | `3.11` | Stable |
+| `version-15` | `version-15` | `3.11` | Stable |
+| `version-16` | `version-16` | `3.14` | Beta |
+| `develop` | `develop` | `3.14` | Experimental |
+
 ### Prerequisites
 
 This framework depends on Frappe and ERPNext. You'll need to install them first:
