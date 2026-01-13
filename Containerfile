@@ -17,8 +17,8 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # ARG for flexible versioning
-ARG FRAPPE_VERSION=version-15
-ARG ERPNEXT_VERSION=version-15
+ARG FRAPPE_VERSION=develop
+ARG ERPNEXT_VERSION=develop
 
 # Install frappe and erpnext framework from git
 RUN pip install --no-cache-dir git+https://github.com/frappe/frappe.git@${FRAPPE_VERSION} && \
