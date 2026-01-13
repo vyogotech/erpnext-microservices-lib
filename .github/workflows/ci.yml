@@ -77,6 +77,14 @@ jobs:
 
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+          # Determine Python version
+          PYTHON_VERSION="3.11"
+          if [[ "$VERSION" == "develop" ]] || [[ "$VERSION" == "version-16" ]]; then
+            PYTHON_VERSION="3.14"
+          fi
+          echo "python_version=$PYTHON_VERSION" >> $GITHUB_OUTPUT
+
           # Convert repository name to lowercase for GHCR
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "image_name=ghcr.io/$REPO_LOWER" >> $GITHUB_OUTPUT
@@ -92,6 +100,7 @@ jobs:
           build-args: |
             FRAPPE_VERSION=${{ steps.vars.outputs.version }}
             ERPNEXT_VERSION=${{ steps.vars.outputs.version }}
+            PYTHON_VERSION=${{ steps.vars.outputs.python_version }}
 
       - name: Push to GHCR
         uses: redhat-actions/push-to-registry@v2
