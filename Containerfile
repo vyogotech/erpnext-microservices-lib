@@ -1,8 +1,8 @@
 # ============================================
 # STAGE 1: Builder (compile dependencies)
 # ============================================
-ARG PYTHON_VERSION=3.14
-FROM python:${PYTHON_VERSION}-slim AS builder
+ARG PYTHON_TAG=3.14
+FROM python:${PYTHON_TAG}-slim AS builder
 
 # Install ONLY build tools (will be discarded in final image)
 RUN apt-get update && \
@@ -18,7 +18,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # ARG for flexible versioning
-ARG PYTHON_VERSION
+ARG PYTHON_TAG
 ARG FRAPPE_VERSION=version-16
 ARG ERPNEXT_VERSION=version-16
 
@@ -26,10 +26,10 @@ ARG ERPNEXT_VERSION=version-16
 RUN pip install --no-cache-dir git+https://github.com/frappe/frappe.git@${FRAPPE_VERSION} && \
     pip install --no-cache-dir git+https://github.com/frappe/erpnext.git@${ERPNEXT_VERSION} && \
     #remove all client side files for erpnext and frappe to reduce image size - remove  public folder and .js, .css, .map files
-    find /opt/venv/lib/python${PYTHON_VERSION}/site-packages/frappe/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
-    find /opt/venv/lib/python${PYTHON_VERSION}/site-packages/erpnext/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
-    rm -rf /opt/venv/lib/python${PYTHON_VERSION}/site-packages/frappe/public/build && \
-    rm -rf /opt/venv/lib/python${PYTHON_VERSION}/site-packages/erpnext/public/build
+    find /opt/venv/lib/python${PYTHON_TAG}/site-packages/frappe/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
+    find /opt/venv/lib/python${PYTHON_TAG}/site-packages/erpnext/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
+    rm -rf /opt/venv/lib/python${PYTHON_TAG}/site-packages/frappe/public/build && \
+    rm -rf /opt/venv/lib/python${PYTHON_TAG}/site-packages/erpnext/public/build
 # Install the microservice library
 COPY . /tmp/frappe-microservice-lib
 RUN pip install --no-cache-dir /tmp/frappe-microservice-lib && \
@@ -54,14 +54,14 @@ RUN mkdir -p /logs && \
     echo "erpnext" >> /app/sites/apps.txt && \
     # Link pip-installed ERPNext as Frappe app (no redundant cloning!)
     mkdir -p /app/sites/apps && \
-    ln -s /opt/venv/lib/python${PYTHON_VERSION}/site-packages/erpnext /app/sites/apps/erpnext && \
-    ln -s /opt/venv/lib/python${PYTHON_VERSION}/site-packages/frappe /app/sites/apps/frappe && \
+    ln -s /opt/venv/lib/python${PYTHON_TAG}/site-packages/erpnext /app/sites/apps/erpnext && \
+    ln -s /opt/venv/lib/python${PYTHON_TAG}/site-packages/frappe /app/sites/apps/frappe && \
     # Create minimal saas_platform stub (required by ERPNext hooks)
-    mkdir -p /opt/venv/lib/python${PYTHON_VERSION}/site-packages/saas_platform && \
-    echo "# Minimal stub for ERPNext compatibility" > /opt/venv/lib/python${PYTHON_VERSION}/site-packages/saas_platform/__init__.py
+    mkdir -p /opt/venv/lib/python${PYTHON_TAG}/site-packages/saas_platform && \
+    echo "# Minimal stub for ERPNext compatibility" > /opt/venv/lib/python${PYTHON_TAG}/site-packages/saas_platform/__init__.py
 
 # Create utils.py stub
-RUN printf 'class Utils:\n    @staticmethod\n    def set_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        pass\n\n    @staticmethod\n    def get_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        return None\n\n# Also provide module-level functions for backward compatibility\ndef set_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    pass\n\ndef get_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    return None\n' > /opt/venv/lib/python${PYTHON_VERSION}/site-packages/saas_platform/utils.py
+RUN printf 'class Utils:\n    @staticmethod\n    def set_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        pass\n\n    @staticmethod\n    def get_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        return None\n\n# Also provide module-level functions for backward compatibility\ndef set_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    pass\n\ndef get_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    return None\n' > /opt/venv/lib/python${PYTHON_TAG}/site-packages/saas_platform/utils.py
 
 # ============================================
 # STAGE 2: Runtime (Debian slim, stable wheels)
