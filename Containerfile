@@ -1,7 +1,7 @@
 # ============================================
 # STAGE 1: Builder (compile dependencies)
 # ============================================
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 
 # Install ONLY build tools (will be discarded in final image)
 RUN apt-get update && \
@@ -64,7 +64,7 @@ RUN printf 'class Utils:\n    @staticmethod\n    def set_tenant_id(*args, **kwar
 # ============================================
 # STAGE 2: Runtime (Debian slim, stable wheels)
 # ============================================
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Install ONLY runtime dependencies (no build tools)
 RUN apt-get update && \
