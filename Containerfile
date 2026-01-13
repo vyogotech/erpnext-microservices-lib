@@ -1,7 +1,7 @@
 # ============================================
 # STAGE 1: Builder (compile dependencies)
 # ============================================
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim AS builder
 
 # Install ONLY build tools (will be discarded in final image)
 RUN apt-get update && \
