@@ -100,7 +100,7 @@ jobs:
           build-args: |
             FRAPPE_VERSION=${{ steps.vars.outputs.version }}
             ERPNEXT_VERSION=${{ steps.vars.outputs.version }}
-            PYTHON_VERSION=${{ steps.vars.outputs.python_version }}
+            PYTHON_TAG=${{ steps.vars.outputs.python_version }}
 
       - name: Push to GHCR
         uses: redhat-actions/push-to-registry@v2
