@@ -1,0 +1,103 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'version-*' ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, develop, 'version-*' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run TDD Unit Tests (Pytest)
+        run: |
+          PYTHONPATH=. pytest --alluredir=allure-results tests/
+
+      - name: Run BDD Behavioral Tests (Behave)
+        run: |
+          PYTHONPATH=. behave -f allure_behave.formatter:AllureFormatter -o allure-results features/
+
+      - name: Upload Allure Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: allure-results
+          path: allure-results
+          retention-days: 1
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Calculate Image Tag & Versions
+        id: vars
+        run: |
+          # Default values
+          TAG="latest"
+          VERSION="version-15"
+          
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            TAG="pr-${{ github.event.number }}"
+            # Use base branch version for PRs if it's a version branch
+            if [[ "${{ github.base_ref }}" == version-* ]]; then
+              VERSION="${{ github.base_ref }}"
+            elif [[ "${{ github.base_ref }}" == "develop" ]]; then
+              VERSION="develop"
+            fi
+          elif [[ "${{ github.ref }}" == refs/heads/develop ]]; then
+            TAG="develop"
+            VERSION="develop"
+          elif [[ "${{ github.ref }}" == refs/heads/version-* ]]; then
+            VERSION=$(echo "${{ github.ref }}" | sed 's/refs\/heads\///')
+            TAG="$VERSION"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="latest"
+            VERSION="version-15"
+          fi
+          
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Convert repository name to lowercase for GHCR
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_name=ghcr.io/$REPO_LOWER" >> $GITHUB_OUTPUT
+
+      - name: Build Image with Buildah
+        id: build_image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ steps.vars.outputs.image_name }}
+          tags: ${{ steps.vars.outputs.tag }}
+          containerfiles: |
+            ./Containerfile
+          build-args: |
+            FRAPPE_VERSION=${{ steps.vars.outputs.version }}
+            ERPNEXT_VERSION=${{ steps.vars.outputs.version }}
+
+      - name: Push to GHCR
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build_image.outputs.image }}
+          tags: ${{ steps.build_image.outputs.tags }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
