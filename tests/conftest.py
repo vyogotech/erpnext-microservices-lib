@@ -4,11 +4,11 @@ import sys
 
 # Mock frappe BEFORE importing any modules that use it
 mock_frappe = MagicMock()
-mock_frappe.PermissionError = type('PermissionError', (Exception,), {})
-mock_frappe.DoesNotExistError = type('DoesNotExistError', (Exception,), {})
-mock_frappe.ValidationError = type('ValidationError', (Exception,), {})
-mock_frappe.AuthenticationError = type('AuthenticationError', (Exception,), {})
-mock_frappe.LinkValidationError = type('LinkValidationError', (Exception,), {})
+mock_frappe.PermissionError = type('PermissionError', (Exception,), {'__module__': 'frappe'})
+mock_frappe.DoesNotExistError = type('DoesNotExistError', (Exception,), {'__module__': 'frappe'})
+mock_frappe.ValidationError = type('ValidationError', (Exception,), {'__module__': 'frappe'})
+mock_frappe.AuthenticationError = type('AuthenticationError', (Exception,), {'__module__': 'frappe'})
+mock_frappe.LinkValidationError = type('LinkValidationError', (Exception,), {'__module__': 'frappe'})
 mock_frappe._dict = dict
 
 # Add local to mock_frappe
