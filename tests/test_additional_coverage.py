@@ -369,3 +369,4 @@ def test_microservice_app_run_calls_flask_run():
 def test_microservice_app_get_current_tenant_id_custom():
     app = MicroserviceApp("test-service", get_tenant_id_func=lambda: "tenant-x")
     assert app._get_current_tenant_id() == "tenant-x"
+

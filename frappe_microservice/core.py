@@ -356,20 +356,6 @@ class TenantAwareDB:
 
             return doc
 
-    def delete_doc(self, doctype, name, verify_tenant=True, **kwargs):
-        """
-        Delete a document after verifying tenant ownership
-
-        Args:
-            doctype: DocType name
-            name: Document name
-            verify_tenant: If True, verifies tenant_id before deletion
-        """
-        if verify_tenant:
-            # Verify tenant ownership before deleting
-            self.get_doc(doctype, name, verify_tenant=True)
-
-        return frappe.delete_doc(doctype, name, **kwargs)
 
     def count(self, doctype, filters=None):
         """Count documents with automatic tenant filter"""
