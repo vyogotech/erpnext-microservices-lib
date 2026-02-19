@@ -17,7 +17,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.14'
 
       - name: Install dependencies
         run: |
@@ -54,7 +54,7 @@ jobs:
         run: |
           # Default values
           TAG="latest"
-          VERSION="version-15"
+          VERSION="version-16"
           
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             TAG="pr-${{ github.event.number }}"
@@ -72,7 +72,7 @@ jobs:
             TAG="$VERSION"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             TAG="latest"
-            VERSION="version-15"
+            VERSION="version-16"
           fi
           
           echo "tag=$TAG" >> $GITHUB_OUTPUT
