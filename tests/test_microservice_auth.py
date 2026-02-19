@@ -122,9 +122,9 @@ class TestSecureRouteDecorator:
                 with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
                     g.request_id = str(uuid.uuid4())
                     response = test_endpoint()
-                    
-                    assert response['user'] == 'user@example.com'
-                    assert response['message'] == 'success'
+
+                    assert response.json['user'] == 'user@example.com'
+                    assert response.json['message'] == 'success'
     
     def test_secure_route_auth_failure(self, app):
         """Test request with authentication failure"""

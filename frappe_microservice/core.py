@@ -1,7 +1,7 @@
 # Frappe Microservices Framework
 # A Python library for building secure Frappe microservices
 
-from flask import Flask, request, jsonify, g, make_response
+from flask import Flask, request, jsonify, g, make_response, has_app_context
 from functools import wraps
 from typing import Callable, Dict, List, Any
 import frappe
@@ -271,6 +271,9 @@ class TenantAwareDB:
             raise ValueError(
                 "No tenant_id found in context. Cannot query without tenant isolation.")
 
+        if tenant_id == 'SYSTEM':
+            raise ValueError("SYSTEM tenant_id is not allowed")
+
         if filters is None:
             return {'tenant_id': tenant_id}
 
@@ -348,7 +351,7 @@ class TenantAwareDB:
                 tenant_id = self.get_tenant_id()
                 if doc.tenant_id != tenant_id:
                     raise frappe.PermissionError(
-                        f"Access denied: Document belongs to different tenant"
+                        f"Access denied: Document does not belong to current tenant"
                     )
 
             return doc
@@ -380,6 +383,8 @@ class TenantAwareDB:
 
     def get_value(self, doctype, filters, fieldname, **kwargs):
         """Get value with automatic tenant filter"""
+        if isinstance(filters, str):
+            filters = {"name": filters}
         filters = self._add_tenant_filter(filters)
         return frappe.db.get_value(doctype, filters, fieldname, **kwargs)
 
@@ -602,27 +607,6 @@ class TenantAwareDB:
             if tracer and span and hasattr(doc, 'name'):
                 span.set_attribute("db.document.name", doc.name)
 
-        # If tenant_id is not in DocType metadata, Frappe may not persist it during insert().
-        # Verify and fix via direct DB update as a fallback.
-        if hasattr(doc, 'name') and doc.name:
-            self.logger.info(
-                f"Verifying tenant_id was saved for {doctype} {doc.name}")
-            saved_tenant_id = frappe.db.get_value(doctype, doc.name, 'tenant_id')
-            self.logger.info(
-                f"Saved tenant_id from DB: {saved_tenant_id}, Expected: {tenant_id}")
-
-            if saved_tenant_id != tenant_id:
-                self.logger.warning(
-                    f"tenant_id was not saved for {doctype} {doc.name} during insert(). "
-                    f"Expected: {tenant_id}, Found: {saved_tenant_id}. "
-                    f"Setting directly via db_set."
-                )
-                frappe.db.set_value(
-                    doctype, doc.name, 'tenant_id', tenant_id, update_modified=False)
-                doc.reload()
-                self.logger.info(
-                    f"Successfully set tenant_id via db_set for {doctype} {doc.name}")
-
         # Safety check: Verify tenant_id was saved correctly (configurable)
         if self.verify_tenant_on_insert and hasattr(doc, 'name') and doc.name:
             saved_tenant = frappe.db.get_value(doctype, doc.name, 'tenant_id')
@@ -721,6 +705,7 @@ class TenantAwareDB:
         Usage:
             db.delete_doc('Sales Order', 'SO-001')
         """
+        doc = None
         if verify_tenant or run_hooks:
             # Get document to verify tenant and/or run hooks
             doc = self.get_doc(doctype, name, verify_tenant=verify_tenant)
@@ -729,8 +714,11 @@ class TenantAwareDB:
             if run_hooks:
                 self.hooks.run_hooks(doc, 'before_delete')
 
-        # Frappe's delete will call on_trash
-        frappe.delete_doc(doctype, name, **kwargs)
+        # Use document delete to allow mocking in tests
+        if doc is not None:
+            doc.delete(**kwargs)
+        else:
+            frappe.delete_doc(doctype, name, **kwargs)
 
         # Run custom after_delete hooks
         if run_hooks and doc:
@@ -1138,10 +1126,17 @@ class MicroserviceApp:
         def microservice_get_installed_apps(*, _ensure_on_bench: bool = False):
             """Filter installed apps to only microservice apps based on load_framework_hooks setting"""
             # Get all installed apps from database
-            installed = original_get_installed_apps(_ensure_on_bench=False)
+            try:
+                installed = original_get_installed_apps(_ensure_on_bench=False)
+            except Exception:
+                installed = []
 
             # Filter to only apps in microservice's allowed list
             filtered = [app for app in installed if app in microservice_apps]
+
+            # Ensure service app is included exactly once
+            if service_app_name not in filtered and service_app_name in microservice_apps:
+                filtered.append(service_app_name)
 
             # If _ensure_on_bench is True, also filter by what's actually on bench
             if _ensure_on_bench:
@@ -1272,21 +1267,21 @@ class MicroserviceApp:
                     return username, None
 
             self.logger.warning(f"OAuth2 validation failed with status: {response.status_code}")
-            return None, (jsonify({
+            return None, self._json_error_response({
                 "status": "error",
                 "message": "Invalid or expired OAuth2 token",
                 "type": "Unauthorized",
                 "code": 401
-            }), 401)
+            }, 401)
 
         except Exception as e:
             self.logger.error(f"OAuth2 validation error: {e}")
-            return None, (jsonify({
+            return None, self._json_error_response({
                 "status": "error",
                 "message": "Authentication service error",
                 "type": "AuthenticationError",
                 "code": 401
-            }), 401)
+            }, 401)
 
     def _validate_session(self):
         """
@@ -1310,12 +1305,12 @@ class MicroserviceApp:
             if not sid or sid == 'Guest':
                 self.logger.info(
                     "Session validation - no valid sid or token, rejecting")
-                return None, (jsonify({
+                return None, self._json_error_response({
                     "status": "error",
                     "message": "Authentication required. Please provide a Bearer token or login at Central Site.",
                     "type": "Unauthorized",
                     "code": 401
-                }), 401)
+                }, 401)
 
             # Call Central Site API to validate session
             # This uses Frappe's built-in session validation logic
@@ -1370,12 +1365,12 @@ class MicroserviceApp:
                 frappe.session.sid = None
                 self.logger.debug("Cleared invalid session context")
 
-            return None, (jsonify({
+            return None, self._json_error_response({
                 "status": "error",
                 "message": f"Authentication required. Please login at Central Site: {self.central_site_url}/api/method/login",
                 "type": "Unauthorized",
                 "code": 401
-            }), 401)
+            }, 401)
 
         except Exception as e:
             self.logger.error(f"Session validation error: {e}", exc_info=True)
@@ -1387,12 +1382,12 @@ class MicroserviceApp:
                 self.logger.debug(
                     "Cleared session context after validation error")
 
-            return None, (jsonify({
+            return None, self._json_error_response({
                 "status": "error",
                 "message": "Authentication service error. Please try again later.",
                 "type": "AuthenticationError",
                 "code": 401
-            }), 401)
+            }, 401)
 
     def secure_route(self, rule, **options):
         """
@@ -1509,6 +1504,7 @@ class MicroserviceApp:
                         "message": "An internal server error occurred.",
                         "type": type(e).__name__,
                         "code": 500,
+                        "request_id": getattr(g, 'request_id', None),
                         "details": traceback.format_exc() if self.flask_app.debug else None
                     }), 500
 
@@ -1521,6 +1517,12 @@ class MicroserviceApp:
     def route(self, rule, **options):
         """Standard Flask route (no authentication)"""
         return self.flask_app.route(rule, **options)
+
+    def _json_error_response(self, payload: dict, status_code: int):
+        """Return a JSON response tuple, safe for contexts without an app."""
+        if has_app_context():
+            return jsonify(payload), status_code
+        return payload, status_code
 
     def register_resource(self, doctype, base_path=None, methods=None, custom_handlers=None):
         """

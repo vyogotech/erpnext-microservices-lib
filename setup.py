@@ -11,7 +11,7 @@ setup(
     name="frappe-microservice",
     version="1.0.0",
     author="Vyogo Technologies",
-    author_email="dev@frappe.io",
+    author_email="varun@vyogolabs.tech",
     description="A Python framework for building secure, isolated Frappe microservices",
     long_description=long_description,
     long_description_content_type="text/markdown",

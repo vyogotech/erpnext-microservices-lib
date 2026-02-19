@@ -170,6 +170,16 @@ class ControllerRegistry:
         self._controllers: Dict[str, Type[DocumentController]] = {}
         self._controller_paths: list = []
     
+    def register_controller(self, doctype: str, controller_class: Type[DocumentController]):
+        """
+        Backwards-compatible alias for register().
+
+        Args:
+            doctype: DocType name
+            controller_class: Controller class (subclass of DocumentController)
+        """
+        return self.register(doctype, controller_class)
+
     def register(self, doctype: str, controller_class: Type[DocumentController]):
         """
         Register a controller class for a doctype
@@ -194,6 +204,12 @@ class ControllerRegistry:
         if path not in self._controller_paths:
             self._controller_paths.append(path)
             logger.info(f"✅ Added controller path: {path}")
+
+    def discover_controllers(self, directory: str):
+        """
+        Backwards-compatible alias for auto_discover_controllers().
+        """
+        return self.auto_discover_controllers(directory)
     
     def auto_discover_controllers(self, directory: str):
         """
@@ -244,6 +260,12 @@ class ControllerRegistry:
             
             except Exception as e:
                 logger.error(f"❌ Error loading controller from {file_path.name}: {e}")
+
+    def setup_controllers(self, app):
+        """
+        Backwards-compatible no-op setup hook for tests and integrations.
+        """
+        logger.info("✅ Controller registry setup completed")
     
     def _filename_to_doctype(self, filename: str) -> str:
         """

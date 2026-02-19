@@ -9,29 +9,67 @@ import sys
 from pathlib import Path
 
 
-def create_site_config():
-    """Create site_config.json from environment variables if it doesn't exist."""
+def create_site_config(
+    db_host=None,
+    db_port=None,
+    db_name=None,
+    db_user=None,
+    db_password=None,
+    redis_host=None,
+    redis_port=None,
+):
+    """
+    Create site_config.json from explicit args or environment variables.
+
+    Returns:
+        dict: The generated configuration.
+    """
     frappe_sites_path = os.getenv('FRAPPE_SITES_PATH', '/app/sites')
     frappe_site = os.getenv('FRAPPE_SITE', 'dev.localhost')
     site_path = Path(frappe_sites_path) / frappe_site
     config_file = site_path / 'site_config.json'
 
     if config_file.exists():
-        return
+        with open(config_file, 'r') as f:
+            return json.load(f)
 
-    # Create directory if needed
-    site_path.mkdir(parents=True, exist_ok=True)
+    # Build config from explicit args or environment variables
+    resolved_db_host = db_host or os.getenv('DB_HOST', 'localhost')
+    resolved_db_port = int(db_port or os.getenv('DB_PORT', '3306'))
+    resolved_db_name = db_name or os.getenv('DB_NAME', '')
+    resolved_db_user = db_user or os.getenv('DB_USER', 'frappe')
+    resolved_db_password = db_password or os.getenv('DB_PASSWORD', 'changeme')
+    resolved_redis_host = redis_host or os.getenv('REDIS_HOST', 'localhost')
+    resolved_redis_port = int(redis_port or os.getenv('REDIS_PORT', '6379'))
 
-    # Build config from environment variables
+    # Create directory if needed (may fail outside container)
+    try:
+        site_path.mkdir(parents=True, exist_ok=True)
+    except PermissionError:
+        # Return config without writing if filesystem is read-only
+        return {
+            'db_host': resolved_db_host,
+            'db_port': resolved_db_port,
+            'db_name': resolved_db_name,
+            'db_user': resolved_db_user,
+            'db_password': resolved_db_password,
+            'redis_cache': f"redis://{resolved_redis_host}:{resolved_redis_port}",
+            'redis_queue': f"redis://{resolved_redis_host}:{resolved_redis_port}",
+            'redis_socketio': f"redis://{resolved_redis_host}:{resolved_redis_port}",
+            'disable_async': False,
+            'auto_insert_custom_fields': True,
+            'allow_cors': '*'
+        }
+
     config = {
-        'db_host': os.getenv('DB_HOST', 'localhost'),
-        'db_port': int(os.getenv('DB_PORT', '3306')),
-        'db_name': os.getenv('DB_NAME', ''),
-        'db_user': os.getenv('DB_USER', 'frappe'),
-        'db_password': os.getenv('DB_PASSWORD', 'changeme'),
-        'redis_cache': f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}",
-        'redis_queue': f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}",
-        'redis_socketio': f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', '6379')}",
+        'db_host': resolved_db_host,
+        'db_port': resolved_db_port,
+        'db_name': resolved_db_name,
+        'db_user': resolved_db_user,
+        'db_password': resolved_db_password,
+        'redis_cache': f"redis://{resolved_redis_host}:{resolved_redis_port}",
+        'redis_queue': f"redis://{resolved_redis_host}:{resolved_redis_port}",
+        'redis_socketio': f"redis://{resolved_redis_host}:{resolved_redis_port}",
         'disable_async': False,
         'auto_insert_custom_fields': True,
         'allow_cors': '*'
@@ -39,6 +77,8 @@ def create_site_config():
 
     with open(config_file, 'w') as f:
         json.dump(config, f, indent=2)
+
+    return config
 
 
 def run_app(app):
