@@ -2,10 +2,10 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, develop, 'version-*' ]
-    tags: [ 'v*' ]
+    branches: [main, develop, "version-*"]
+    tags: ["v*"]
   pull_request:
-    branches: [ main, develop, 'version-*' ]
+    branches: [main, develop, "version-*"]
 
 jobs:
   test:
@@ -17,11 +17,12 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.14"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip uninstall -y frappe-microservice || true
           pip install -e ".[dev]"
 
       - name: Run TDD Unit Tests (Pytest)
@@ -55,7 +56,7 @@ jobs:
           # Default values
           TAG="latest"
           VERSION="version-15"
-          
+
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             TAG="pr-${{ github.event.number }}"
             # Use base branch version for PRs if it's a version branch
@@ -74,7 +75,7 @@ jobs:
             TAG="latest"
             VERSION="version-15"
           fi
-          
+
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           # Convert repository name to lowercase for GHCR
