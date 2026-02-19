@@ -2,40 +2,38 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main, develop, "version-*"]
-    tags: ["v*"]
+    branches: [ main, develop, 'version-*' ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [main, develop, "version-*"]
+    branches: [ main, develop, 'version-*' ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.14"
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          if [ -f setup.py ] || [ -f pyproject.toml ]; then pip install -e ".[dev]"; fi
+          pip install -e ".[dev]"
 
       - name: Run TDD Unit Tests (Pytest)
         run: |
-          if [ -d tests ]; then PYTHONPATH=. pytest --alluredir=allure-results tests/; else echo "No tests folder found"; fi
+          PYTHONPATH=. pytest --alluredir=allure-results tests/
 
       - name: Run BDD Behavioral Tests (Behave)
         run: |
-           if [ -d features ]; then PYTHONPATH=. behave -f allure_behave.formatter:AllureFormatter -o allure-results features/; else echo "No features folder found"; fi
+          PYTHONPATH=. behave -f allure_behave.formatter:AllureFormatter -o allure-results features/
 
       - name: Upload Allure Results
-        uses: actions/upload-artifact@v4
-        if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: allure-results
           path: allure-results
@@ -49,15 +47,15 @@ jobs:
       packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Calculate Image Tag & Versions
         id: vars
         run: |
           # Default values
           TAG="latest"
-          VERSION="version-16"
-
+          VERSION="version-15"
+          
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             TAG="pr-${{ github.event.number }}"
             # Use base branch version for PRs if it's a version branch
@@ -74,9 +72,9 @@ jobs:
             TAG="$VERSION"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             TAG="latest"
-            VERSION="version-16"
+            VERSION="version-15"
           fi
-
+          
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           # Convert repository name to lowercase for GHCR

@@ -21,8 +21,12 @@ from typing import Dict, Type, Optional, Any
 import importlib
 import os
 import sys
+import logging
 from pathlib import Path
 import frappe
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
 
 
 class DocumentController:
@@ -175,7 +179,7 @@ class ControllerRegistry:
             controller_class: Controller class (subclass of DocumentController)
         """
         self._controllers[doctype] = controller_class
-        print(f"✅ Registered controller: {doctype} -> {controller_class.__name__}")
+        logger.info(f"✅ Registered controller: {doctype} -> {controller_class.__name__}")
     
     def get_controller(self, doctype: str) -> Optional[Type[DocumentController]]:
         """Get controller class for doctype"""
@@ -189,7 +193,7 @@ class ControllerRegistry:
         """Add a directory to search for controllers"""
         if path not in self._controller_paths:
             self._controller_paths.append(path)
-            print(f"✅ Added controller path: {path}")
+            logger.info(f"✅ Added controller path: {path}")
     
     def auto_discover_controllers(self, directory: str):
         """
@@ -202,14 +206,14 @@ class ControllerRegistry:
             directory: Directory containing controller files
         """
         if not os.path.exists(directory):
-            print(f"⚠️  Controller directory not found: {directory}")
+            logger.warning(f"⚠️  Controller directory not found: {directory}")
             return
         
         # Add directory to Python path
         if directory not in sys.path:
             sys.path.insert(0, directory)
         
-        print(f"🔍 Discovering controllers in: {directory}")
+        logger.info(f"🔍 Discovering controllers in: {directory}")
         
         # Find all .py files
         for file_path in Path(directory).glob('*.py'):
@@ -234,12 +238,12 @@ class ControllerRegistry:
                     if isinstance(controller_class, type) and issubclass(controller_class, DocumentController):
                         self.register(doctype, controller_class)
                     else:
-                        print(f"⚠️  {class_name} in {file_path.name} is not a DocumentController")
+                        logger.warning(f"⚠️  {class_name} in {file_path.name} is not a DocumentController")
                 else:
-                    print(f"⚠️  No class {class_name} found in {file_path.name}")
+                    logger.warning(f"⚠️  No class {class_name} found in {file_path.name}")
             
             except Exception as e:
-                print(f"❌ Error loading controller from {file_path.name}: {e}")
+                logger.error(f"❌ Error loading controller from {file_path.name}: {e}")
     
     def _filename_to_doctype(self, filename: str) -> str:
         """
@@ -327,7 +331,7 @@ def setup_controllers(app, controllers_directory: str = None):
     # Register hooks to call controller methods
     _register_controller_hooks(app.tenant_db)
     
-    print(f"✅ Controllers setup complete. Registered: {list(_registry._controllers.keys())}")
+    logger.info(f"✅ Controllers setup complete. Registered: {list(_registry._controllers.keys())}")
 
 
 def _register_controller_hooks(tenant_db):

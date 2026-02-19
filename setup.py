@@ -15,7 +15,7 @@ setup(
     description="A Python framework for building secure, isolated Frappe microservices",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/your-org/frappe-microservice",
+    url="https://github.com/ATXINVOX/frappe-microservice-lib",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 4 - Beta",

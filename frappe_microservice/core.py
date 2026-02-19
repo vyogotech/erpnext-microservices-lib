@@ -9,6 +9,7 @@ import requests
 import os
 import logging
 import traceback
+import uuid
 from frappe_microservice.entrypoint import create_site_config
 try:
     from flasgger import Swagger
@@ -247,16 +248,20 @@ class TenantAwareDB:
         users = db.get_all('User', filters={'status': 'active'})
     """
 
-    def __init__(self, get_tenant_id_func, logger=None):
+    def __init__(self, get_tenant_id_func, logger=None, verify_tenant_on_insert=True):
         """
         Initialize tenant-aware DB wrapper
 
         Args:
             get_tenant_id_func: Function that returns current tenant_id
+            logger: Optional logger instance
+            verify_tenant_on_insert: If True, verify tenant_id after insert (default: True)
+                                    Set to False for performance in high-trust environments
         """
         self.get_tenant_id = get_tenant_id_func
         self.logger = logger or logging.getLogger(__name__)
         self.hooks = DocumentHooks(logger=self.logger)  # Hook system
+        self.verify_tenant_on_insert = verify_tenant_on_insert
 
     def _add_tenant_filter(self, filters):
         """Add tenant_id to filters dict or list"""
@@ -597,14 +602,12 @@ class TenantAwareDB:
             if tracer and span and hasattr(doc, 'name'):
                 span.set_attribute("db.document.name", doc.name)
 
-        # Safety check: Verify tenant_id was saved (required when column added via ALTER TABLE)
-        # If tenant_id is not in DocType metadata, Frappe may not save it during insert()
-        # even if set on the doc object. Use db_set as fallback.
+        # If tenant_id is not in DocType metadata, Frappe may not persist it during insert().
+        # Verify and fix via direct DB update as a fallback.
         if hasattr(doc, 'name') and doc.name:
             self.logger.info(
                 f"Verifying tenant_id was saved for {doctype} {doc.name}")
-            saved_tenant_id = frappe.db.get_value(
-                doctype, doc.name, 'tenant_id')
+            saved_tenant_id = frappe.db.get_value(doctype, doc.name, 'tenant_id')
             self.logger.info(
                 f"Saved tenant_id from DB: {saved_tenant_id}, Expected: {tenant_id}")
 
@@ -612,18 +615,33 @@ class TenantAwareDB:
                 self.logger.warning(
                     f"tenant_id was not saved for {doctype} {doc.name} during insert(). "
                     f"Expected: {tenant_id}, Found: {saved_tenant_id}. "
-                    f"Setting directly via db_set. This indicates tenant_id column exists "
-                    f"but is not in DocType metadata (added via ALTER TABLE)."
+                    f"Setting directly via db_set."
                 )
                 frappe.db.set_value(
                     doctype, doc.name, 'tenant_id', tenant_id, update_modified=False)
-                # Reload doc to reflect the change
                 doc.reload()
                 self.logger.info(
                     f"Successfully set tenant_id via db_set for {doctype} {doc.name}")
-            else:
-                self.logger.info(
-                    f"tenant_id correctly saved during insert for {doctype} {doc.name}")
+
+        # Safety check: Verify tenant_id was saved correctly (configurable)
+        if self.verify_tenant_on_insert and hasattr(doc, 'name') and doc.name:
+            saved_tenant = frappe.db.get_value(doctype, doc.name, 'tenant_id')
+            self.logger.info(
+                f"Post-insert verification: saved tenant_id = {saved_tenant}")
+
+            if saved_tenant != tenant_id:
+                error_msg = (
+                    f"CRITICAL: tenant_id mismatch after insert! "
+                    f"Expected: {tenant_id}, Got: {saved_tenant}"
+                )
+                self.logger.error(error_msg)
+                raise ValueError(error_msg)
+
+            self.logger.info(
+                f"Tenant isolation verified for {doctype}/{doc.name}")
+        elif not self.verify_tenant_on_insert:
+            self.logger.debug(
+                "Skipped post-insert tenant verification (verify_tenant_on_insert=False)")
 
         # Run custom hooks
         if run_hooks:
@@ -1021,6 +1039,13 @@ class MicroserviceApp:
             # Set up request context
             frappe.local.form_dict = frappe._dict()
             frappe.local.request_ip = request.remote_addr
+            
+            # Track rollback state to prevent double-commit
+            g._frappe_rolled_back = False
+            
+            # Request correlation ID for distributed tracing
+            g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
+            self.logger.info(f"Request started: {request.method} {request.path} [request_id={g.request_id}]")
 
         @self.flask_app.after_request
         def cleanup_frappe_context(response):
@@ -1029,14 +1054,22 @@ class MicroserviceApp:
                 if hasattr(frappe, 'local') and hasattr(frappe.local, 'form_dict'):
                     frappe.local.form_dict.clear()
 
-                # Commit any pending transactions
+                # Commit any pending transactions (only if not already rolled back)
                 if hasattr(frappe, 'db') and frappe.db:
-                    frappe.db.commit()
+                    if not getattr(g, '_frappe_rolled_back', False):
+                        frappe.db.commit()
+                        self.logger.debug("Transaction committed successfully")
+                    else:
+                        self.logger.debug("Skipped commit (transaction was rolled back)")
 
                 # Log session state for debugging (but don't clear it - it's request-scoped)
                 if hasattr(frappe, 'session'):
                     self.logger.debug(
-                        f"Request completed: user={frappe.session.user}, sid={frappe.session.sid}")
+                        f"Request completed: user={frappe.session.user}, sid={frappe.session.sid} [request_id={getattr(g, 'request_id', 'unknown')}]")
+                
+                # Add correlation ID to response headers
+                if hasattr(g, 'request_id'):
+                    response.headers['X-Request-ID'] = g.request_id
             except Exception as e:
                 self.logger.warning(f"Cleanup warning: {e}", exc_info=True)
 
@@ -1091,12 +1124,6 @@ class MicroserviceApp:
                 f"Hook loading mode: Loading hooks from apps: {microservice_apps}")
         else:
             self.logger.info(f"Hook loading mode: NONE (microservice only)")
-
-        # Add current service name if it's not already in the list
-        # Convert service name to app name format (e.g., "orders-service" -> "orders_service")
-        service_app_name = self.name.replace('-', '_')
-        if service_app_name not in microservice_apps:
-            microservice_apps.append(service_app_name)
 
         # Add current service name if it's not already in the list
         # Convert service name to app name format (e.g., "orders-service" -> "orders_service")
@@ -1380,21 +1407,16 @@ class MicroserviceApp:
         def decorator(f):
             @wraps(f)
             def wrapper(*args, **kwargs):
-                # Add direct debug logging
-                print(f"SECURE_ROUTE DEBUG: Method {f.__name__} called")
+                # Validate session
                 self.logger.info(
                     f"SECURE_ROUTE DEBUG: Method {f.__name__} called")
 
-                # Validate session
                 username, error_response = self._validate_session()
 
-                print(
-                    f"SECURE_ROUTE DEBUG: _validate_session returned: {username}, {error_response is not None}")
                 self.logger.info(
                     f"SECURE_ROUTE DEBUG: _validate_session returned: {username}, {error_response is not None}")
 
                 if error_response:
-                    print(f"SECURE_ROUTE DEBUG: Returning error response")
                     return error_response
 
                 # CRITICAL: Verify frappe.session.user matches validated username
@@ -1421,8 +1443,6 @@ class MicroserviceApp:
 
                 # Inject user as first parameter
                 try:
-                    print(
-                        f"SECURE_ROUTE DEBUG: Calling function with user = {username}")
                     result = f(username, *args, **kwargs)
 
                     # Auto-convert dict to JSON response
@@ -1433,6 +1453,7 @@ class MicroserviceApp:
 
                 except (frappe.PermissionError, frappe.AuthenticationError) as e:
                     frappe.db.rollback()
+                    g._frappe_rolled_back = True  # Mark as rolled back
                     self.logger.warning(
                         f"Access denied in {f.__name__}: {str(e)}\n{traceback.format_exc()}")
                     return jsonify({
@@ -1440,11 +1461,13 @@ class MicroserviceApp:
                         "message": str(e) or "You do not have permission to access this resource.",
                         "type": "PermissionError",
                         "code": 403,
+                        "request_id": getattr(g, 'request_id', None),
                         "details": traceback.format_exc() if self.flask_app.debug else None
                     }), 403
 
                 except (frappe.DoesNotExistError, frappe.LinkValidationError) as e:
                     frappe.db.rollback()
+                    g._frappe_rolled_back = True  # Mark as rolled back
                     self.logger.warning(
                         f"Resource not found in {f.__name__}: {str(e)}")
                     # Try to extract doctype from error if possible
@@ -1452,24 +1475,28 @@ class MicroserviceApp:
                         "status": "error",
                         "message": str(e) or "The requested resource was not found.",
                         "type": "DoesNotExistError",
-                        "code": 404
+                        "code": 404,
+                        "request_id": getattr(g, 'request_id', None)
                     }), 404
 
                 except (frappe.ValidationError, ValueError, TypeError, KeyError) as e:
                     frappe.db.rollback()
+                    g._frappe_rolled_back = True  # Mark as rolled back
                     self.logger.warning(
                         f"Invalid request in {f.__name__}: {str(e)}")
                     return jsonify({
                         "status": "error",
                         "message": f"Invalid input data: {str(e)}",
                         "type": type(e).__name__,
-                        "code": 400
+                        "code": 400,
+                        "request_id": getattr(g, 'request_id', None)
                     }), 400
 
                 except Exception as e:
                     # Rollback on error
                     try:
                         frappe.db.rollback()
+                        g._frappe_rolled_back = True  # Mark as rolled back
                     except Exception as rb_e:
                         self.logger.error(
                             f"Rollback failed: {rb_e}", exc_info=True)
