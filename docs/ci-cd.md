@@ -10,16 +10,16 @@ The main workflow (`.github/workflows/ci.yml`) executes the following steps:
 3.  **Build & Publish**: Builds the OCI image using **Buildah** and publishes it to **GitHub Container Registry (GHCR)**.
 
 > [!TIP]
-> Images are automatically tagged based on the branch (e.g., `latest`, `develop`, `version-15`) and are stored at `ghcr.io/<owner>/frappe-microservice-lib`.
+> Images are automatically tagged based on the branch (e.g., `latest`, `develop`, `version-16`) and are stored at `ghcr.io/<owner>/frappe-microservice-lib`.
 
 The framework follows a Frappe-style branching model for managing versions:
 
 | Branch | Image Tag | Build Argument (`${FRAAPE_VERSION}`) | Purpose |
 |--------|-----------|-------------------------------------|---------|
 | `develop` | `develop` | `develop` | Active development |
-| `version-15` | `version-15` | `version-15` | Stable V15 release |
-| `main` | `latest` | `version-15` | Current stable release |
-| Tags (`v*`) | `latest` | `version-15` | Production tags |
+| `version-16` | `version-16` | `version-16` | Stable V16 release |
+| `main` | `latest` | `version-16` | Current stable release |
+| Tags (`v*`) | `latest` | `version-16` | Production tags |
 
 ### Dynamic Build Arguments
 The `Containerfile` uses `ARG` for framework versions. The CI pipeline automatically passes the branch name as the version to ensure the library built for a specific branch depends on the correct core framework version.
