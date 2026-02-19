@@ -1,6 +1,7 @@
 # ============================================
 # STAGE 1: Builder (compile dependencies)
 # ============================================
+# Builder stage uses Python 3.14 for Frappe v16 compatibility
 FROM python:3.14-slim AS builder
 
 # Install ONLY build tools (will be discarded in final image)
