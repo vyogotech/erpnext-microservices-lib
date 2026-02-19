@@ -55,7 +55,7 @@ jobs:
         run: |
           # Default values
           TAG="latest"
-          VERSION="version-15"
+          VERSION="version-16"
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             TAG="pr-${{ github.event.number }}"
@@ -73,7 +73,7 @@ jobs:
             TAG="$VERSION"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             TAG="latest"
-            VERSION="version-15"
+            VERSION="version-16"
           fi
 
           echo "tag=$TAG" >> $GITHUB_OUTPUT
