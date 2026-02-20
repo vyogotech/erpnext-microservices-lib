@@ -47,8 +47,8 @@ def create_site_config(
     try:
         site_path.mkdir(parents=True, exist_ok=True)
         # Frappe expects the site directory to be within its CWD.
-        # Ensure it exists in /app/ as well by symlinking it.
-        app_site_link = Path(f"/app/{frappe_site}")
+        # Ensure it exists in CWD as well by symlinking it.
+        app_site_link = Path(os.getcwd()) / frappe_site
         if not app_site_link.exists() and not app_site_link.is_symlink():
             os.symlink(site_path, app_site_link)
 
