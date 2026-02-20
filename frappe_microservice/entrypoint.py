@@ -25,7 +25,7 @@ def create_site_config(
         dict: The generated configuration.
     """
     # Setup paths according to how Frappe Operator stores sites
-    frappe_sites_path = os.getenv('FRAPPE_SITES_PATH', '/app/sites/frappe-sites')
+    frappe_sites_path = os.getenv('FRAPPE_SITES_PATH', '/app')
     frappe_site = os.getenv('FRAPPE_SITE', 'dev.localhost')
     site_path = Path(frappe_sites_path) / frappe_site
     config_file = site_path / 'site_config.json'
@@ -46,12 +46,6 @@ def create_site_config(
     # Create directory if needed (may fail outside container)
     try:
         site_path.mkdir(parents=True, exist_ok=True)
-        # Frappe expects the site directory to be within its CWD.
-        # Ensure it exists in CWD as well by symlinking it.
-        app_site_link = Path(os.getcwd()) / frappe_site
-        if not app_site_link.exists() and not app_site_link.is_symlink():
-            os.symlink(site_path, app_site_link)
-
         logs_path = site_path / "logs"
         logs_path.mkdir(parents=True, exist_ok=True)
     except PermissionError:
