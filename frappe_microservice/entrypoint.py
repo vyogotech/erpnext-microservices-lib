@@ -24,7 +24,8 @@ def create_site_config(
     Returns:
         dict: The generated configuration.
     """
-    frappe_sites_path = os.getenv('FRAPPE_SITES_PATH', '/app/sites')
+    # Setup paths according to how Frappe Operator stores sites
+    frappe_sites_path = os.getenv('FRAPPE_SITES_PATH', '/app')
     frappe_site = os.getenv('FRAPPE_SITE', 'dev.localhost')
     site_path = Path(frappe_sites_path) / frappe_site
     config_file = site_path / 'site_config.json'
@@ -45,6 +46,8 @@ def create_site_config(
     # Create directory if needed (may fail outside container)
     try:
         site_path.mkdir(parents=True, exist_ok=True)
+        logs_path = site_path / "logs"
+        logs_path.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         # Return config without writing if filesystem is read-only
         return {
