@@ -35,7 +35,7 @@ RUN pip install --no-cache-dir /tmp/frappe-microservice-lib && \
     pip install --no-cache-dir \
     pyjwt==2.8.0 \
     requests==2.32.0 \
-    redis==4.5.5 \
+    redis==7.2.1 \
     pymysql==1.1.1 && \
     rm -rf /tmp/frappe-microservice-lib && \
     find /opt/venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && \
@@ -51,6 +51,7 @@ RUN mkdir -p /logs && \
     mkdir -p /app/dev.localhost/logs && \
     echo "frappe" > /app/sites/apps.txt && \
     echo "erpnext" >> /app/sites/apps.txt && \
+    echo "saas_platform" >> /app/sites/apps.txt && \
     # Link pip-installed ERPNext as Frappe app (no redundant cloning!)
     mkdir -p /app/sites/apps && \
     ln -s /opt/venv/lib/python3.14/site-packages/erpnext /app/sites/apps/erpnext && \
@@ -95,7 +96,3 @@ EXPOSE 8000
 
 # Default entrypoint for microservices (can be overridden)
 ENTRYPOINT ["/opt/venv/bin/python", "/app/entrypoint.py"]
-
-
-
-
