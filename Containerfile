@@ -86,7 +86,7 @@ COPY --from=builder /app/dev.localhost /app/dev.localhost
 COPY --from=builder /logs /logs
 
 # Fix permissions to allow non-root users (e.g., in OpenShift/Kubernetes) to write logs and site configs
-RUN chmod -R 777 /app/sites /logs /app/dev.localhost
+RUN chmod -R 777 /app /logs
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \
