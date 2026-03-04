@@ -854,6 +854,15 @@ class MicroserviceApp:
             'FRAPPE_SITE', 'site1.local')
         self.sites_path = sites_path or os.getenv(
             'FRAPPE_SITES_PATH', '/home/frappe/frappe-bench/sites')
+        
+        # Pre-create log directories for the site to prevent FileNotFoundError
+        # during frappe.connect() logger initialization.
+        for _base in ['/app', '/app/sites', self.sites_path]:
+            try:
+                os.makedirs(os.path.join(_base, self.frappe_site, 'logs'), exist_ok=True)
+            except Exception:
+                pass
+                
         self.db_host = db_host or os.getenv('DB_HOST')
 
         # Central Site for authentication
