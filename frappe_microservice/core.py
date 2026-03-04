@@ -853,7 +853,11 @@ class MicroserviceApp:
         self.frappe_site = frappe_site or os.getenv(
             'FRAPPE_SITE', 'site1.local')
         self.sites_path = sites_path or os.getenv(
-            'FRAPPE_SITES_PATH', '/home/frappe/frappe-bench/sites')
+            'FRAPPE_SITES_PATH', '/app/sites')
+            
+        # DEFINITIVE LOGGING FIX: Force Frappe's internal SITES_PATH environment variable
+        # so any logger initialization before frappe.init() resolves to our writable directory
+        os.environ['SITES_PATH'] = self.sites_path
         
         # Pre-create log directories for the site to prevent FileNotFoundError
         # during frappe.connect() logger initialization.
