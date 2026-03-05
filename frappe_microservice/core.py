@@ -1105,6 +1105,13 @@ class MicroserviceApp:
         microservice_apps = self.load_framework_hooks.copy(
         ) if self.load_framework_hooks else []
 
+        # CRITICAL FIX: Prevent nested monkey-patching that leads to RecursionError
+        if getattr(frappe, "_microservice_isolation_applied", False):
+            self.logger.debug("Microservice app isolation already applied, skipping monkey-patching")
+            return
+        
+        frappe._microservice_isolation_applied = True
+
         # Log which apps are being loaded
         if microservice_apps:
             self.logger.info(
