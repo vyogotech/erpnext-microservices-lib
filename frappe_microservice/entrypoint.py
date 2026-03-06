@@ -45,6 +45,7 @@ def create_site_config(
     
     resolved_redis_queue_host = os.getenv('REDIS_QUEUE_HOST', resolved_redis_host)
     resolved_redis_cache_host = os.getenv('REDIS_CACHE_HOST', resolved_redis_host)
+    resolved_redis_namespace = os.getenv('REDIS_NAMESPACE', None)
 
     # Create directory if needed (may fail outside container)
     try:
@@ -53,7 +54,7 @@ def create_site_config(
         logs_path.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         # Return config without writing if filesystem is read-only
-        return {
+        config = {
             'db_host': resolved_db_host,
             'db_port': resolved_db_port,
             'db_name': resolved_db_name,
@@ -66,6 +67,9 @@ def create_site_config(
             'auto_insert_custom_fields': True,
             'allow_cors': '*'
         }
+        if resolved_redis_namespace:
+            config['redis_namespace'] = resolved_redis_namespace
+        return config
 
     config = {
         'db_host': resolved_db_host,
@@ -80,6 +84,9 @@ def create_site_config(
         'auto_insert_custom_fields': True,
         'allow_cors': '*'
     }
+    
+    if resolved_redis_namespace:
+        config['redis_namespace'] = resolved_redis_namespace
 
     with open(config_file, 'w') as f:
         json.dump(config, f, indent=2)
