@@ -42,6 +42,9 @@ def create_site_config(
     resolved_db_password = db_password or os.getenv('DB_PASSWORD', 'changeme')
     resolved_redis_host = redis_host or os.getenv('REDIS_HOST', 'localhost')
     resolved_redis_port = int(redis_port or os.getenv('REDIS_PORT', '6379'))
+    
+    resolved_redis_queue_host = os.getenv('REDIS_QUEUE_HOST', resolved_redis_host)
+    resolved_redis_cache_host = os.getenv('REDIS_CACHE_HOST', resolved_redis_host)
 
     # Create directory if needed (may fail outside container)
     try:
@@ -56,8 +59,8 @@ def create_site_config(
             'db_name': resolved_db_name,
             'db_user': resolved_db_user,
             'db_password': resolved_db_password,
-            'redis_cache': f"redis://{resolved_redis_host}:{resolved_redis_port}",
-            'redis_queue': f"redis://{resolved_redis_host}:{resolved_redis_port}",
+            'redis_cache': f"redis://{resolved_redis_cache_host}:{resolved_redis_port}",
+            'redis_queue': f"redis://{resolved_redis_queue_host}:{resolved_redis_port}",
             'redis_socketio': f"redis://{resolved_redis_host}:{resolved_redis_port}",
             'disable_async': False,
             'auto_insert_custom_fields': True,
@@ -70,8 +73,8 @@ def create_site_config(
         'db_name': resolved_db_name,
         'db_user': resolved_db_user,
         'db_password': resolved_db_password,
-        'redis_cache': f"redis://{resolved_redis_host}:{resolved_redis_port}",
-        'redis_queue': f"redis://{resolved_redis_host}:{resolved_redis_port}",
+        'redis_cache': f"redis://{resolved_redis_cache_host}:{resolved_redis_port}",
+        'redis_queue': f"redis://{resolved_redis_queue_host}:{resolved_redis_port}",
         'redis_socketio': f"redis://{resolved_redis_host}:{resolved_redis_port}",
         'disable_async': False,
         'auto_insert_custom_fields': True,
