@@ -22,5 +22,8 @@
 - README.md: expanded with architecture overview and module descriptions
 - All test files updated to work with new module structure
 
+### Fixed
+- **Module loading / RecursionError**: Guard monkey-patching of `frappe.get_installed_apps` and `frappe.get_all_apps` with an idempotency flag (`_microservice_isolation_applied`) so that repeated calls to `_patch_app_resolution()` do not double-wrap and cause RecursionError. Ensures each microservice only loads apps from its bounded context (apps.txt + load_framework_hooks) and does not see central-site-only apps from the shared DB.
+
 ### Improved
 - Test coverage increased to meet 80% CI threshold
