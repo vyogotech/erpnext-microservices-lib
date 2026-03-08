@@ -1,0 +1,26 @@
+# Changelog
+
+## [0.2.0] - 2026-03-08
+
+### Added
+- New modular components extracted from core.py:
+  - app.py: MicroserviceApp class
+  - auth.py: authentication and JWT handling
+  - hooks.py: Frappe hook integration
+  - isolation.py: tenant isolation logic
+  - resources.py: REST resource handlers
+  - tenant.py: tenant-aware database operations
+- End-to-end simulation tests (test_e2e_simulation.py)
+- Patch target guard tests (test_patch_target_guard.py)
+- Expanded documentation (architecture.md, development.md, getting-started.md)
+
+### Changed
+- core.py: refactored from monolith to thin re-export module
+- entrypoint.py: updated imports for new modular structure
+- Containerfile: streamlined build steps
+- Containerfile.postgres: updated base image and build steps
+- README.md: expanded with architecture overview and module descriptions
+- All test files updated to work with new module structure
+
+### Improved
+- Test coverage increased to meet 80% CI threshold

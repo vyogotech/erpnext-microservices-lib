@@ -17,6 +17,16 @@ pip install -e .
 ### Production Deployment (Docker)
 The framework is designed to be built into a Docker image using the provided `Containerfile`. See [CI/CD & Release Strategy](ci-cd.md) for automated tagging details.
 
+**Library entrypoint (no per-service entrypoint.py)**  
+The base image runs `python -m frappe_microservice.entrypoint`. The framework discovers your app via env:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVICE_PATH` | Directory containing your service code | `/app/service` |
+| `SERVICE_APP` | Module and app attribute (`module:attr`) | `server:app` |
+
+Your service only needs e.g. `server.py` with `app = create_microservice("my-service", ...)`. Set `SERVICE_PATH` and optionally `SERVICE_APP` in your service image; no custom entrypoint script is required.
+
 ## Quick Start
 
 ### Basic Microservice
@@ -68,5 +78,7 @@ The framework uses environment variables for easy containerization:
 | `FRAPPE_SITES_PATH` | Path to the bench sites directory | |
 | `CENTRAL_SITE_URL` | URL of the Central Site for Auth | |
 | `DB_HOST` | Database host for the service | |
+| `SERVICE_PATH` | Directory containing service code (container entrypoint) | `/app/service` |
+| `SERVICE_APP` | App to run as `module:attr` (container entrypoint) | `server:app` |
 | `LOG_LEVEL` | Logging level (DEBUG, INFO, etc.) | `INFO` |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP Exporter URL | |

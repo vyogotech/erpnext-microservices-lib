@@ -7,7 +7,7 @@ class TestSwagger:
     @pytest.fixture
     def app(self):
         # Mock Swagger to avoid dependency issues during tests if not installed
-        with patch('frappe_microservice.core.Swagger') as mock_swagger:
+        with patch('frappe_microservice.app.Swagger') as mock_swagger:
             app = MicroserviceApp("test-app")
             app.flask_app.testing = True
             return app

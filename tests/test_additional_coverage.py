@@ -331,9 +331,6 @@ def test_microservice_app_validate_session_cookie_invalid():
 def test_microservice_app_isolate_apps_filters_hooks():
     app = MicroserviceApp("test-service", central_site_url="http://central")
 
-    def fake_get_installed_apps(*, _ensure_on_bench=False):
-        return ["frappe", "erpnext", "test_service", "otherapp"]
-
     def fake_get_doc_hooks():
         return {
             "Sales Order": {
@@ -343,18 +340,19 @@ def test_microservice_app_isolate_apps_filters_hooks():
             }
         }
 
-    frappe.get_installed_apps = fake_get_installed_apps
-    frappe.get_doc_hooks = fake_get_doc_hooks
-
     # Reset guard to allow testing isolation logic anew
     if hasattr(frappe, "_microservice_isolation_applied"):
         delattr(frappe, "_microservice_isolation_applied")
 
-    app._isolate_microservice_apps()
+    with patch("frappe.get_all_apps", return_value=["frappe", "erpnext", "test_service"]):
+        app._patch_app_resolution()
 
     installed = frappe.get_installed_apps()
     assert "frappe" in installed
     assert "test_service" in installed
+
+    frappe.get_doc_hooks = fake_get_doc_hooks
+    app._patch_hooks_resolution()
 
     filtered_hooks = frappe.get_doc_hooks()
     handlers = filtered_hooks["Sales Order"]["before_insert"]
@@ -363,7 +361,7 @@ def test_microservice_app_isolate_apps_filters_hooks():
 
 def test_microservice_app_run_calls_flask_run():
     app = MicroserviceApp("test-service", central_site_url="http://central")
-    with patch("frappe_microservice.core.create_site_config") as mock_create:
+    with patch("frappe_microservice.app.create_site_config") as mock_create:
         with patch.object(app.flask_app, "run") as mock_run:
             app.run(port=5050)
             mock_create.assert_called_once()
@@ -389,51 +387,49 @@ def test_microservice_app_hook_loading_modes():
         MicroserviceApp("test-service", load_framework_hooks='invalid')
 
 
-def test_microservice_get_installed_apps_bench_filtering():
+def test_microservice_get_installed_apps_filters_to_allowed():
     app = MicroserviceApp("test-service")
-    
-    # Mock frappe.cache() and all_apps
-    mock_cache = MagicMock()
-    mock_cache.get_value.return_value = ["frappe", "test_service"] # erpnext missing from bench
-    
-    with patch("frappe.cache", return_value=mock_cache), \
-         patch("frappe.get_installed_apps", return_value=["frappe", "erpnext", "test_service"]):
-        
-        # Reset guard
-        if hasattr(frappe, "_microservice_isolation_applied"):
-            delattr(frappe, "_microservice_isolation_applied")
-            
-        app._isolate_microservice_apps()
-        
-        # Should filter out erpnext because it's not in bench
-        filtered = frappe.get_installed_apps(_ensure_on_bench=True)
-        assert "frappe" in filtered
-        assert "test_service" in filtered
-        assert "erpnext" not in filtered
+
+    # Reset guard
+    if hasattr(frappe, "_microservice_isolation_applied"):
+        delattr(frappe, "_microservice_isolation_applied")
+
+    # apps.txt has frappe, erpnext, test_service but load_framework_hooks
+    # defaults to ['frappe', 'erpnext'], so all three should be included
+    with patch("frappe.get_all_apps",
+               return_value=["frappe", "erpnext", "test_service"]):
+        app._patch_app_resolution()
+
+    filtered = frappe.get_installed_apps()
+    assert "frappe" in filtered
+    assert "test_service" in filtered
+    assert "erpnext" in filtered
 
 
-def test_isolate_microservice_apps_no_framework_hooks():
+def test_patch_app_resolution_no_framework_hooks():
     # Test 'none' mode
     app = MicroserviceApp("test-service", load_framework_hooks='none')
     assert app.load_framework_hooks == []
-    
-    with patch("frappe.get_installed_apps", return_value=["frappe", "otherapp", "test_service"]):
-        # Reset guard
-        if hasattr(frappe, "_microservice_isolation_applied"):
-            delattr(frappe, "_microservice_isolation_applied")
-            
-        app._isolate_microservice_apps()
-        
-        # Should only include test_service (and frappe if added by wrapper)
-        # Actually frappe is always added first if in filtered
-        filtered = frappe.get_installed_apps()
-        assert "test_service" in filtered
-        assert "otherapp" not in filtered
+
+    # Reset guard
+    if hasattr(frappe, "_microservice_isolation_applied"):
+        delattr(frappe, "_microservice_isolation_applied")
+
+    # apps.txt has frappe, otherapp, test_service
+    with patch("frappe.get_all_apps",
+               return_value=["frappe", "otherapp", "test_service"]):
+        app._patch_app_resolution()
+
+    # load_framework_hooks=[] means only frappe (always) + service app
+    filtered = frappe.get_installed_apps()
+    assert "test_service" in filtered
+    assert "frappe" in filtered
+    assert "otherapp" not in filtered
 
 
 def test_swagger_initialization():
     # Mock Swagger class presence
-    with patch("frappe_microservice.core.Swagger") as mock_swagger:
+    with patch("frappe_microservice.app.Swagger") as mock_swagger:
         app = MicroserviceApp("test-service")
         # Should call Swagger(flask_app, template=...)
         mock_swagger.assert_called_once()
@@ -482,18 +478,21 @@ def test_secure_route_exception_rollback():
 
 def test_microservice_get_attr_isolation_enforcement():
     app = MicroserviceApp("test-service", load_framework_hooks=['frappe'])
-    
+
     # Reset guard
     if hasattr(frappe, "_microservice_isolation_applied"):
         delattr(frappe, "_microservice_isolation_applied")
-        
-    app._isolate_microservice_apps()
-    
+
+    with patch("frappe.get_all_apps", return_value=["frappe"]):
+        app._patch_app_resolution()
+
+    app._patch_hooks_resolution()
+
     # Should allow frappe
     assert frappe.get_attr("frappe.utils.now") is not None
-    
-    # Should raise AttributeError for other apps (if not 'frappe' or in microservice_apps)
-    with pytest.raises(AttributeError, match="Hook from non-installed app 'otherapp'"):
+
+    # Should raise AttributeError for other apps
+    with pytest.raises(AttributeError, match="non-installed app 'otherapp'"):
         frappe.get_attr("otherapp.logic.func")
 
 
@@ -581,32 +580,34 @@ def test_frappe_context_middleware():
 
 def test_get_doc_hooks_filtering():
     app = MicroserviceApp("test-service", load_framework_hooks=['frappe'])
-    
+
     # Reset guard
     if hasattr(frappe, "_microservice_isolation_applied"):
         delattr(frappe, "_microservice_isolation_applied")
-        
+
+    with patch("frappe.get_all_apps", return_value=["frappe"]):
+        app._patch_app_resolution()
+
     def fake_get_doc_hooks():
         return {
             "ToDo": {
                 "on_update": ["frappe.core.do", "otherapp.handler.do"]
             }
         }
-        
-    with patch("frappe.get_doc_hooks", side_effect=fake_get_doc_hooks):
-        app._isolate_microservice_apps()
-        
-        # The wrapper should filter out otherapp
-        filtered = frappe.get_doc_hooks()
-        assert "frappe.core.do" in filtered["ToDo"]["on_update"]
-        assert "otherapp.handler.do" not in filtered["ToDo"]["on_update"]
+
+    frappe.get_doc_hooks = fake_get_doc_hooks
+    app._patch_hooks_resolution()
+
+    filtered = frappe.get_doc_hooks()
+    assert "frappe.core.do" in filtered["ToDo"]["on_update"]
+    assert "otherapp.handler.do" not in filtered["ToDo"]["on_update"]
 
 
 def test_validate_session_outer_exception():
     app = MicroserviceApp("test-service")
     with app.flask_app.test_request_context():
         # Force the very first line of the try block to fail
-        with patch("frappe_microservice.core.request.headers.get", side_effect=RuntimeError("Outer crash")):
+        with patch("frappe_microservice.auth.request.headers.get", side_effect=RuntimeError("Outer crash")):
             user, error = app._validate_session()
             assert user is None
             assert error[1] == 401
@@ -614,18 +615,19 @@ def test_validate_session_outer_exception():
 
 def test_microservice_get_installed_apps_exception():
     app = MicroserviceApp("test-service")
-    
+
     # Reset guard
     if hasattr(frappe, "_microservice_isolation_applied"):
         delattr(frappe, "_microservice_isolation_applied")
-        
-    with patch("frappe.get_installed_apps", side_effect=Exception("DB Down")):
-        app._isolate_microservice_apps()
-        
-        # Should fall back to [] and then add test_service
+
+    # When get_all_apps fails (filesystem issue), should fall back gracefully
+    with patch("frappe.get_all_apps", side_effect=Exception("apps.txt missing")):
+        app._patch_app_resolution()
+
         installed = frappe.get_installed_apps()
+        # Should still include the service app and frappe
         assert "test_service" in installed
-        assert "frappe" not in installed
+        assert "frappe" in installed
 
 
 def test_otel_import_error_logging():

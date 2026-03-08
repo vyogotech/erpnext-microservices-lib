@@ -50,32 +50,27 @@ class TestNoPrintStatements:
 
 
 class TestDuplicateCodeRemoval:
-    """Test that duplicate code in _isolate_microservice_apps is removed."""
-    
-    def test_isolate_microservice_apps_no_duplicates(self):
+    """Test that duplicate code in app isolation is removed."""
+
+    def test_patch_app_resolution_no_duplicates(self):
         """Test that service app name is only added once."""
         app = MicroserviceApp("test-service", central_site_url="http://central")
-        
-        # Mock frappe.get_all to return some apps
-        frappe.get_all.return_value = [
-            {"name": "frappe"},
-            {"name": "erpnext"},
-            {"name": "test_service"}  # Our service app
-        ]
-        
-        with app.flask_app.test_request_context():
-            app._isolate_microservice_apps()
-            
-            # The method monkey-patches frappe.get_installed_apps
-            # Call it to get the filtered list
-            result = frappe.get_installed_apps()
-            
-            # Count occurrences of service app name
-            service_app_name = "test_service"
-            count = result.count(service_app_name)
-            
-            assert count == 1, \
-                f"Service app '{service_app_name}' should appear exactly once, found {count} times"
+
+        # Reset guard
+        if hasattr(frappe, "_microservice_isolation_applied"):
+            delattr(frappe, "_microservice_isolation_applied")
+
+        with patch("frappe.get_all_apps",
+                    return_value=["frappe", "erpnext", "test_service"]):
+            app._patch_app_resolution()
+
+        result = frappe.get_installed_apps()
+
+        service_app_name = "test_service"
+        count = result.count(service_app_name)
+
+        assert count == 1, \
+            f"Service app '{service_app_name}' should appear exactly once, found {count} times"
 
 
 class TestConfigurationGeneration:

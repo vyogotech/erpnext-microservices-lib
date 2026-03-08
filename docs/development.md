@@ -35,6 +35,28 @@ PYTHONPATH=. behave -f allure_behave.formatter:AllureFormatter -o allure-results
 allure serve allure-results
 ```
 
+## Where to Make Changes
+
+The `frappe_microservice` package is modular.
+Use this guide to find the right file for your change:
+
+| If you are changing... | Edit this file |
+|---|---|
+| Document lifecycle hooks (`DocumentHooks`) | `frappe_microservice/hooks.py` |
+| Tenant resolution or `TenantAwareDB` | `frappe_microservice/tenant.py` |
+| App/module isolation (patching `get_installed_apps`, module maps, hook filtering) | `frappe_microservice/isolation.py` |
+| OAuth2 or SID session validation | `frappe_microservice/auth.py` |
+| `register_resource()` auto-CRUD | `frappe_microservice/resources.py` |
+| `MicroserviceApp.__init__`, middleware, logging, OTEL, `secure_route`, `run()` | `frappe_microservice/app.py` |
+| DocType controller system | `frappe_microservice/controller.py` |
+| CLI / site_config / container entrypoint (main, SERVICE_PATH, SERVICE_APP) | `frappe_microservice/entrypoint.py` |
+| Public API re-exports | `frappe_microservice/__init__.py` (and `core.py` for compat) |
+
+> **Important for test authors**: `unittest.mock.patch()` targets must point to the
+> module where the symbol is *used at runtime*, not where it is re-exported.
+> For example, patch `frappe_microservice.app.get_user_tenant_id` (where
+> `MicroserviceApp` imports it), not `frappe_microservice.core.get_user_tenant_id`.
+
 ## Manual Verification with Podman Compose
 
 You can verify the dev environment orchestration outside of VS Code:

@@ -51,18 +51,10 @@ RUN mkdir -p /logs && \
     mkdir -p /app/dev.localhost/logs && \
     echo "frappe" > /app/sites/apps.txt && \
     echo "erpnext" >> /app/sites/apps.txt && \
-    echo "saas_platform" >> /app/sites/apps.txt && \
     # Link pip-installed ERPNext as Frappe app (no redundant cloning!)
     mkdir -p /app/sites/apps && \
     ln -s /opt/venv/lib/python3.14/site-packages/erpnext /app/sites/apps/erpnext && \
-    ln -s /opt/venv/lib/python3.14/site-packages/frappe /app/sites/apps/frappe && \
-    # Create minimal saas_platform stub (required by ERPNext hooks)
-    mkdir -p /opt/venv/lib/python3.14/site-packages/saas_platform && \
-    echo "# Minimal stub for ERPNext compatibility" > /opt/venv/lib/python3.14/site-packages/saas_platform/__init__.py && \
-    echo "app_name = 'saas_platform'" > /opt/venv/lib/python3.14/site-packages/saas_platform/hooks.py
-
-# Create utils.py stub
-RUN printf 'class Utils:\n    @staticmethod\n    def set_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        pass\n\n    @staticmethod\n    def get_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        return None\n\n# Also provide module-level functions for backward compatibility\ndef set_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    pass\n\ndef get_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    return None\n' > /opt/venv/lib/python3.14/site-packages/saas_platform/utils.py
+    ln -s /opt/venv/lib/python3.14/site-packages/frappe /app/sites/apps/frappe
 
 # ============================================
 # STAGE 2: Runtime (Debian slim, stable wheels)
@@ -98,5 +90,5 @@ ENV PATH="/opt/venv/bin:$PATH" \
 
 EXPOSE 8000
 
-# Default entrypoint for microservices (can be overridden)
-ENTRYPOINT ["/opt/venv/bin/python", "/app/entrypoint.py"]
+# Default entrypoint: library discovers app via SERVICE_PATH / SERVICE_APP env
+ENTRYPOINT ["/opt/venv/bin/python", "-m", "frappe_microservice.entrypoint"]

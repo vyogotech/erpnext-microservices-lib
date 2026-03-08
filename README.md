@@ -279,6 +279,33 @@ def create_order(user):
 
 See [signup-service/](../signup-service/) for a complete example with controllers.
 
+## Container Deployment (Library Entrypoint)
+
+The base image runs the **library entrypoint** so services do not need their own `entrypoint.py`. The framework discovers your app via environment variables and starts it.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVICE_PATH` | Directory containing your service code (e.g. `server.py`) | `/app/service` |
+| `SERVICE_APP` | Module and app attribute to run (`module:attr`) | `server:app` |
+
+**Minimal service Containerfile** (e.g. signup-service):
+
+```dockerfile
+FROM ghcr.io/your-org/frappe-microservice-lib:latest
+WORKDIR /app
+COPY . /app/service/
+RUN touch /app/service/__init__.py
+# Expose as Frappe app so the framework can load it (name "my-service" -> my_service)
+RUN ln -sf /app/service /app/sites/apps/my_service
+ENV SERVICE_PATH=/app/service
+ENV SERVICE_APP=server:app
+EXPOSE 8000
+```
+
+Your repo only needs a `server.py` that does `app = create_microservice("my-service", ...)` and defines routes. The base image `ENTRYPOINT` is `python -m frappe_microservice.entrypoint`, which loads the app from `SERVICE_PATH` / `SERVICE_APP` and calls `run_app(app)`.
+
+For a different app location or name (e.g. `main:app`), set `SERVICE_APP=main:app`.
+
 ## Configuration
 
 ### Environment Variables
@@ -479,6 +506,27 @@ companies = frappe.get_all(
     filters={"tenant_id": tenant_id}
 )
 ```
+
+## Package Structure
+
+```
+frappe_microservice/
+├── app.py          # MicroserviceApp + create_microservice (main entry)
+├── hooks.py        # DocumentHooks lifecycle system
+├── tenant.py       # TenantAwareDB, get_user_tenant_id
+├── isolation.py    # App/module isolation (IsolationMixin)
+├── auth.py         # OAuth2 & SID authentication (AuthMixin)
+├── resources.py    # Auto-CRUD endpoint generation (ResourceMixin)
+├── controller.py   # Traditional DocType controllers
+├── core.py         # Re-export shim for backward compatibility
+├── entrypoint.py   # create_site_config, run_app, main() (container entrypoint)
+└── __init__.py     # Public API surface
+```
+
+All public symbols remain importable from both `frappe_microservice` and
+`frappe_microservice.core` for full backward compatibility.
+See [docs/architecture.md](docs/architecture.md) for the dependency diagram
+and detailed module descriptions.
 
 ## API Reference
 

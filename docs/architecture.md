@@ -1,5 +1,52 @@
 # Architecture & Isolation
 
+## Package Structure
+
+The `frappe_microservice` package is split into focused modules.
+`core.py` is kept as a thin re-export layer so existing imports remain valid.
+
+```
+frappe_microservice/
+├── __init__.py         # Public API surface
+├── core.py             # Re-export shim (backward compat)
+├── app.py              # MicroserviceApp class + create_microservice()
+├── hooks.py            # DocumentHooks lifecycle system
+├── tenant.py           # NullContext, get_user_tenant_id, TenantAwareDB
+├── isolation.py        # IsolationMixin – app/module/hooks filtering
+├── auth.py             # AuthMixin – OAuth2 & SID session validation
+├── resources.py        # ResourceMixin – auto CRUD endpoint generation
+├── controller.py       # DocumentController + registry
+└── entrypoint.py       # create_site_config, run_app, main() (container entrypoint)
+```
+
+### Module Dependency Diagram
+
+```mermaid
+graph TD
+    app[app.py<br/>MicroserviceApp] --> isolation[isolation.py<br/>IsolationMixin]
+    app --> auth[auth.py<br/>AuthMixin]
+    app --> resources[resources.py<br/>ResourceMixin]
+    app --> tenant[tenant.py<br/>TenantAwareDB]
+    tenant --> hooks[hooks.py<br/>DocumentHooks]
+    core[core.py<br/>re-export shim] -.-> app
+    core -.-> tenant
+    core -.-> hooks
+    init[__init__.py] -.-> core
+```
+
+### Module Responsibilities
+
+| Module | Owns |
+|---|---|
+| `hooks.py` | `DocumentHooks` – register/run lifecycle hooks per DocType |
+| `tenant.py` | `TenantAwareDB`, `get_user_tenant_id`, `NullContext` |
+| `isolation.py` | `IsolationMixin` – patches `frappe.get_installed_apps`, module maps, hooks resolution |
+| `auth.py` | `AuthMixin` – `_validate_oauth_token`, `_validate_session` |
+| `resources.py` | `ResourceMixin` – `register_resource()` auto-CRUD |
+| `app.py` | `MicroserviceApp` (composed from the three mixins) and `create_microservice()` |
+| `core.py` | Re-exports everything for backward compatibility |
+| `entrypoint.py` | `create_site_config`, `run_app`, `main()` (container entrypoint: SERVICE_PATH, SERVICE_APP) |
+
 ## Bounded Context
 
 In a true microservices architecture, each service must own its data. The Frappe Microservice Framework promotes this by encouraging an **Independent Database** for each service.

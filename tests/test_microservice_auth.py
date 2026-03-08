@@ -119,7 +119,7 @@ class TestSecureRouteDecorator:
         with app.flask_app.test_request_context('/test'):
             # Mock successful authentication
             with patch.object(app, '_validate_session', return_value=('user@example.com', None)):
-                with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
+                with patch('frappe_microservice.app.get_user_tenant_id', return_value='tenant-123'):
                     g.request_id = str(uuid.uuid4())
                     response = test_endpoint()
 
@@ -149,7 +149,7 @@ class TestSecureRouteDecorator:
         
         with app.flask_app.test_request_context('/test'):
             with patch.object(app, '_validate_session', return_value=('user@example.com', None)):
-                with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
+                with patch('frappe_microservice.app.get_user_tenant_id', return_value='tenant-123'):
                     with patch('frappe.db.rollback'):
                         g.request_id = str(uuid.uuid4())
                         g._frappe_rolled_back = False
@@ -169,7 +169,7 @@ class TestSecureRouteDecorator:
         
         with app.flask_app.test_request_context('/test'):
             with patch.object(app, '_validate_session', return_value=('user@example.com', None)):
-                with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
+                with patch('frappe_microservice.app.get_user_tenant_id', return_value='tenant-123'):
                     with patch('frappe.db.rollback'):
                         g.request_id = str(uuid.uuid4())
                         g._frappe_rolled_back = False
@@ -189,7 +189,7 @@ class TestSecureRouteDecorator:
         
         with app.flask_app.test_request_context('/test'):
             with patch.object(app, '_validate_session', return_value=('user@example.com', None)):
-                with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
+                with patch('frappe_microservice.app.get_user_tenant_id', return_value='tenant-123'):
                     with patch('frappe.db.rollback'):
                         g.request_id = str(uuid.uuid4())
                         g._frappe_rolled_back = False
@@ -209,7 +209,7 @@ class TestSecureRouteDecorator:
         
         with app.flask_app.test_request_context('/test'):
             with patch.object(app, '_validate_session', return_value=('user@example.com', None)):
-                with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
+                with patch('frappe_microservice.app.get_user_tenant_id', return_value='tenant-123'):
                     with patch('frappe.db.rollback'):
                         g.request_id = str(uuid.uuid4())
                         g._frappe_rolled_back = False
@@ -229,7 +229,7 @@ class TestSecureRouteDecorator:
         
         with app.flask_app.test_request_context('/test'):
             with patch.object(app, '_validate_session', return_value=('user@example.com', None)):
-                with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
+                with patch('frappe_microservice.app.get_user_tenant_id', return_value='tenant-123'):
                     g.request_id = str(uuid.uuid4())
                     response = test_endpoint()
                     
@@ -287,7 +287,7 @@ class TestRollbackTracking:
         
         with app.flask_app.test_request_context('/test'):
             with patch.object(app, '_validate_session', return_value=('user@example.com', None)):
-                with patch('frappe_microservice.core.get_user_tenant_id', return_value='tenant-123'):
+                with patch('frappe_microservice.app.get_user_tenant_id', return_value='tenant-123'):
                     with patch('frappe.db.rollback'):
                         g._frappe_rolled_back = False
                         
