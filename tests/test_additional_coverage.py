@@ -36,16 +36,20 @@ def test_get_user_tenant_id_admin_no_tenant():
     assert get_user_tenant_id('Administrator') is None
 
 
-def test_tenant_db_set_value_requires_exists():
+def test_tenant_db_set_value_requires_tenant_match():
     db = TenantAwareDB(lambda: "tenant-1")
-    frappe.db.exists.return_value = False
+    mock_doc = MagicMock()
+    mock_doc.tenant_id = "other-tenant"
+    frappe.get_doc.return_value = mock_doc
     with pytest.raises(frappe.PermissionError):
         db.set_value("Sales Order", "SO-001", "status", "Draft")
 
 
 def test_tenant_db_set_value_success():
     db = TenantAwareDB(lambda: "tenant-1")
-    frappe.db.exists.return_value = True
+    mock_doc = MagicMock()
+    mock_doc.tenant_id = "tenant-1"
+    frappe.get_doc.return_value = mock_doc
     frappe.db.set_value.return_value = True
     assert db.set_value("Sales Order", "SO-001", "status", "Draft") is True
 

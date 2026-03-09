@@ -40,8 +40,9 @@ def get_user_tenant_id(user_email=None):
     logger = logging.getLogger("frappe_microservice.get_user_tenant_id")
 
     if not user_email:
-        user_email = frappe.session.user if hasattr(
-            frappe, 'session') else 'Guest'
+        user_email = getattr(
+            getattr(frappe, 'session', None), 'user', 'Guest'
+        ) or 'Guest'
         logger.debug(f"No user_email provided, resolved to: {user_email}")
 
     # Reject Guest users
@@ -142,9 +143,9 @@ class TenantAwareDB:
     def _add_tenant_filter(self, filters):
         """
         Inject the current tenant_id into the filters so queries are always
-        tenant-scoped. Accepts None (return {'tenant_id': tenant_id}), dict
-        (add key tenant_id), or list of conditions (append ['tenant_id', '=', tenant_id]).
-        Raises ValueError if tenant_id is missing or SYSTEM.
+        tenant-scoped. Accepts None, dict, list, or str (document name).
+        Raises ValueError if tenant_id is missing, SYSTEM, or filters type
+        is unsupported.
         """
         tenant_id = self.get_tenant_id()
 
@@ -158,6 +159,9 @@ class TenantAwareDB:
         if filters is None:
             return {'tenant_id': tenant_id}
 
+        if isinstance(filters, str):
+            return {'name': filters, 'tenant_id': tenant_id}
+
         if isinstance(filters, dict):
             filters = filters.copy()
             filters['tenant_id'] = tenant_id
@@ -168,7 +172,10 @@ class TenantAwareDB:
             filters.append(['tenant_id', '=', tenant_id])
             return filters
 
-        return filters
+        raise TypeError(
+            f"Unsupported filters type {type(filters).__name__}. "
+            f"Expected None, str, dict, or list."
+        )
 
     def get_all(self, doctype, filters=None, **kwargs):
         """
@@ -253,10 +260,12 @@ class TenantAwareDB:
         return frappe.db.get_value(doctype, filters, fieldname, **kwargs)
 
     def set_value(self, doctype, name, fieldname, value=None, **kwargs):
-        """Update a single field; raises PermissionError if doc not in current tenant."""
-        if not self.exists(doctype, name):
-            raise frappe.PermissionError(f"Document {doctype} {name} not found or belongs to another tenant")
-
+        """Update a single field; verifies tenant ownership first."""
+        doc = self.get_doc(doctype, name, verify_tenant=True)
+        if not doc:
+            raise frappe.PermissionError(
+                f"Document {doctype} {name} not found or belongs to another tenant"
+            )
         return frappe.db.set_value(doctype, name, fieldname, value, **kwargs)
 
     def sql(self, query, values=None, **kwargs):
@@ -293,10 +302,16 @@ class TenantAwareDB:
 
     def commit(self):
         """Commit the current Frappe DB transaction."""
+        if not getattr(frappe, 'db', None):
+            self.logger.warning("commit() called but frappe.db is not available")
+            return
         return frappe.db.commit()
 
     def rollback(self):
         """Roll back the current Frappe DB transaction."""
+        if not getattr(frappe, 'db', None):
+            self.logger.warning("rollback() called but frappe.db is not available")
+            return
         return frappe.db.rollback()
 
     # ============================================
@@ -495,6 +510,9 @@ class TenantAwareDB:
                                 {'status': 'Confirmed'})
         """
         doc = self.get_doc(doctype, name, verify_tenant=True)
+
+        if not data or not isinstance(data, dict):
+            raise ValueError("update_doc requires a non-empty dict of fields to update")
 
         if 'tenant_id' in data:
             data = data.copy()

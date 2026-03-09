@@ -1,5 +1,6 @@
 import pytest
 import json
+import types
 from unittest.mock import MagicMock, patch, call
 import frappe
 from frappe_microservice.core import MicroserviceApp
@@ -9,6 +10,12 @@ def _reset_isolation_guard():
     """Helper to reset the idempotency guard between tests."""
     if hasattr(frappe, "_microservice_isolation_applied"):
         delattr(frappe, "_microservice_isolation_applied")
+
+
+def _reset_hooks_patch_guard():
+    """Reset hooks-patch idempotency so _patch_hooks_resolution() runs again."""
+    if hasattr(frappe, "_microservice_load_app_hooks_patched"):
+        delattr(frappe, "_microservice_load_app_hooks_patched")
 
 
 # ============================================
@@ -454,3 +461,227 @@ class TestPatchHooksResolution:
 
         result = frappe.get_attr("frappe.utils.now")
         assert result is sentinel
+
+
+class TestLoadAppHooksErrorHandling:
+    """Unit tests that _load_app_hooks (microservice_load_app_hooks) handles errors without raising."""
+
+    def _minimal_hooks_module(self):
+        """Return a minimal object that inspect.getmembers treats as a hooks module."""
+        ns = types.SimpleNamespace()
+        ns.doc_events = {}
+        return ns
+
+    def test_missing_hooks_module_skipped_no_raise(self):
+        """When one app has no hooks module (ModuleNotFoundError), skip it and return hooks dict."""
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp(
+            "test-service",
+            load_framework_hooks=["frappe", "erpnext"],
+        )
+        apps = ["frappe", "erpnext", "signup_service"]
+
+        def get_module(path):
+            if path == "signup_service.hooks":
+                raise ModuleNotFoundError("No module named 'signup_service.hooks'")
+            if path in ("frappe.hooks", "erpnext.hooks"):
+                return self._minimal_hooks_module()
+            raise ImportError(path)
+
+        def append_hook(hooks, key, value):
+            hooks.setdefault(key, []).append(value)
+
+        with patch("frappe.get_all_apps", return_value=apps):
+            app._patch_app_resolution()
+        with patch("frappe.get_installed_apps", return_value=apps):
+            with patch("frappe.get_module", side_effect=get_module):
+                frappe.append_hook = append_hook
+                app._patch_hooks_resolution()
+                result = frappe._load_app_hooks()
+        assert isinstance(result, dict)
+        assert "doc_events" in result
+
+    def test_import_error_for_one_app_skipped_no_raise(self):
+        """When one app's hooks raise ImportError, skip it and return hooks dict."""
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp(
+            "test-service",
+            load_framework_hooks=["frappe", "erpnext"],
+        )
+        apps = ["frappe", "broken_app", "erpnext"]
+
+        def get_module(path):
+            if path == "broken_app.hooks":
+                raise ImportError("broken_app.hooks has syntax error")
+            if path in ("frappe.hooks", "erpnext.hooks"):
+                return self._minimal_hooks_module()
+            raise ImportError(path)
+
+        def append_hook(hooks, key, value):
+            hooks.setdefault(key, []).append(value)
+
+        with patch("frappe.get_all_apps", return_value=apps):
+            app._patch_app_resolution()
+        with patch("frappe.get_installed_apps", return_value=apps):
+            with patch("frappe.get_module", side_effect=get_module):
+                frappe.append_hook = append_hook
+                app._patch_hooks_resolution()
+                result = frappe._load_app_hooks()
+        assert isinstance(result, dict)
+
+    def test_get_installed_apps_raises_returns_empty_hooks(self):
+        """When get_installed_apps() raises, return empty hooks dict and do not raise."""
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp("test-service")
+
+        with patch(
+            "frappe.get_installed_apps",
+            side_effect=RuntimeError("database not ready"),
+        ):
+            app._patch_hooks_resolution()
+            result = frappe._load_app_hooks()
+        assert result == {}
+
+    def test_get_installed_apps_returns_non_sequence_returns_empty_hooks(self):
+        """When get_installed_apps() returns None or non-sequence, return empty hooks."""
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp("test-service")
+
+        with patch("frappe.get_installed_apps", return_value=None):
+            app._patch_hooks_resolution()
+            result = frappe._load_app_hooks()
+        assert result == {}
+
+    def test_one_app_getmembers_fails_other_apps_still_loaded(self):
+        """When one app's hooks module raises during getmembers, skip that app only."""
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp(
+            "test-service",
+            load_framework_hooks=["frappe", "erpnext"],
+        )
+        apps = ["frappe", "bad_app", "erpnext"]
+
+        class BadHooks:
+            def __getattribute__(self, name):
+                raise ValueError("bad app hooks")
+
+        def get_module(path):
+            if path == "bad_app.hooks":
+                return BadHooks()
+            if path in ("frappe.hooks", "erpnext.hooks"):
+                return self._minimal_hooks_module()
+            raise ImportError(path)
+
+        def append_hook(hooks, key, value):
+            hooks.setdefault(key, []).append(value)
+
+        with patch("frappe.get_all_apps", return_value=apps):
+            app._patch_app_resolution()
+        with patch("frappe.get_installed_apps", return_value=apps):
+            with patch("frappe.get_module", side_effect=get_module):
+                frappe.append_hook = append_hook
+                app._patch_hooks_resolution()
+                result = frappe._load_app_hooks()
+        assert isinstance(result, dict)
+        assert "doc_events" in result
+
+
+class TestFilterModuleMapsErrorHandling:
+    """_filter_module_maps must not crash on unexpected frappe.local states."""
+
+    def test_app_modules_is_none(self):
+        _reset_isolation_guard()
+        app = MicroserviceApp("test-service")
+        frappe.local.app_modules = None
+        app._filter_module_maps()
+        assert frappe.local.module_app == {}
+
+    def test_app_modules_with_non_iterable_modules(self):
+        """If one app has modules=None instead of a list, skip it."""
+        _reset_isolation_guard()
+        app = MicroserviceApp("test-service")
+        frappe.local.app_modules = {
+            'frappe': ['core', 'desk'],
+            'bad_app': None,
+        }
+        app._filter_module_maps()
+        assert 'core' in frappe.local.module_app
+        assert 'desk' in frappe.local.module_app
+
+
+class TestGetAttrErrorHandling:
+    """microservice_get_attr must handle ImportError/ModuleNotFoundError."""
+
+    def test_get_attr_import_error_becomes_attribute_error(self):
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp(
+            "test-service",
+            load_framework_hooks=["frappe", "erpnext"],
+        )
+
+        def raising_get_attr(method_string):
+            raise ImportError(f"No module named '{method_string.split('.')[0]}'")
+
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app._patch_app_resolution()
+
+        frappe.get_attr = raising_get_attr
+        app._patch_hooks_resolution()
+
+        with pytest.raises(AttributeError, match="non-installed app"):
+            frappe.get_attr("erpnext.stock.utils.func")
+
+    def test_get_attr_module_not_found_becomes_attribute_error(self):
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp(
+            "test-service",
+            load_framework_hooks=["frappe"],
+        )
+
+        def raising_get_attr(method_string):
+            raise ModuleNotFoundError(f"No module named '{method_string}'")
+
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app._patch_app_resolution()
+
+        frappe.get_attr = raising_get_attr
+        app._patch_hooks_resolution()
+
+        with pytest.raises(AttributeError, match="non-installed app"):
+            frappe.get_attr("frappe.utils.now")
+
+    def test_get_attr_rejects_non_string(self):
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp("test-service")
+
+        frappe.get_attr = MagicMock()
+        app._patch_hooks_resolution()
+
+        with pytest.raises(AttributeError, match="must be a string"):
+            frappe.get_attr(12345)
+
+
+class TestSetupFrappeContextInit:
+    """setup_frappe_context must return 503 when init/connect fails."""
+
+    def test_returns_503_when_init_fails(self):
+        _reset_isolation_guard()
+        app = MicroserviceApp("test-service", central_site_url="http://central")
+        app.flask_app.testing = True
+
+        with patch("frappe.init", side_effect=RuntimeError("site config missing")):
+            frappe.local = MagicMock(spec=[])
+            with app.flask_app.test_client() as client:
+                response = client.get("/health")
+                if response.status_code == 503:
+                    data = response.get_json()
+                    assert data["code"] == 503
+                    assert "unavailable" in data["message"].lower()

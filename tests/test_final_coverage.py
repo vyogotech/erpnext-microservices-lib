@@ -275,9 +275,11 @@ def test_tenant_db_update_doc_calls_frappe_get_doc():
 
 
 def test_tenant_db_set_value_calls_frappe_set_value():
-    """Test set_value delegates to frappe.db.set_value"""
+    """Test set_value delegates to frappe.db.set_value after tenant verification"""
     db = TenantAwareDB(lambda: "tenant-1")
-    frappe.db.exists.return_value = True
+    mock_doc = MagicMock()
+    mock_doc.tenant_id = "tenant-1"
+    frappe.get_doc.return_value = mock_doc
     frappe.db.set_value.return_value = True
     
     db.set_value("Sales Order", "SO-001", "status", "Draft")
@@ -546,9 +548,11 @@ def test_tenant_db_delete_with_verify_false():
 
 
 def test_tenant_db_set_value_success():
-    """Test set_value on existing document"""
+    """Test set_value on existing document with matching tenant"""
     db = TenantAwareDB(lambda: "tenant-1")
-    frappe.db.exists.return_value = True
+    mock_doc = MagicMock()
+    mock_doc.tenant_id = "tenant-1"
+    frappe.get_doc.return_value = mock_doc
     frappe.db.set_value.return_value = {"name": "SO-001"}
     
     result = db.set_value("Sales Order", "SO-001", "status", "Draft")

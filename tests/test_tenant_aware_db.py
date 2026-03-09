@@ -261,5 +261,194 @@ class TestTenantAwareDBDelete:
             db.delete_doc('Sales Order', 'SO-001')
 
 
+class TestTenantFilterStringBypass:
+    """Regression: _add_tenant_filter must add tenant_id even for string filters (doc name)."""
+
+    @pytest.fixture
+    def db(self):
+        get_tenant_id = MagicMock(return_value="test_tenant")
+        return TenantAwareDB(get_tenant_id)
+
+    def test_string_filter_gets_tenant_id(self, db):
+        """String filter (doc name) must be converted to dict with tenant_id."""
+        result = db._add_tenant_filter("SO-001")
+        assert isinstance(result, dict)
+        assert result["name"] == "SO-001"
+        assert result["tenant_id"] == "test_tenant"
+
+    def test_unsupported_filter_type_raises(self, db):
+        """Non-standard filter types must raise TypeError, never silently pass."""
+        with pytest.raises(TypeError, match="Unsupported filters type"):
+            db._add_tenant_filter(12345)
+
+    def test_set_value_verifies_tenant_via_get_doc(self, db):
+        """set_value must verify tenant ownership via get_doc, not raw exists."""
+        mock_doc = MagicMock()
+        mock_doc.tenant_id = "different_tenant"
+        with patch("frappe.get_doc", return_value=mock_doc):
+            with pytest.raises(frappe.PermissionError, match="does not belong to current tenant"):
+                db.set_value("Sales Order", "SO-001", "status", "Completed")
+
+    @patch("frappe.db.set_value", create=True)
+    @patch("frappe.get_doc", create=True)
+    def test_set_value_passes_for_same_tenant(self, mock_get_doc, mock_set_value, db):
+        """set_value succeeds when doc belongs to the current tenant."""
+        mock_doc = MagicMock()
+        mock_doc.tenant_id = "test_tenant"
+        mock_get_doc.return_value = mock_doc
+        db.set_value("Sales Order", "SO-001", "status", "Completed")
+        mock_set_value.assert_called_once()
+
+    def test_exists_with_string_name_adds_tenant(self, db):
+        """exists() with a string name must scope by tenant_id."""
+        with patch("frappe.db.exists", return_value=True) as mock_exists:
+            db.exists("Sales Order", "SO-001")
+            call_args = mock_exists.call_args
+            filters = call_args[0][1] if len(call_args[0]) > 1 else call_args[1].get("filters")
+            assert isinstance(filters, dict)
+            assert filters["tenant_id"] == "test_tenant"
+            assert filters["name"] == "SO-001"
+
+
+class TestGetDocHooksErrorHandling:
+    """Tests that microservice_get_doc_hooks handles failures gracefully."""
+
+    def test_get_doc_hooks_returns_empty_on_exception(self):
+        """If original_get_doc_hooks raises, return {} instead of crashing."""
+        from frappe_microservice.core import MicroserviceApp
+        from tests.test_microservice_app import _reset_isolation_guard, _reset_hooks_patch_guard
+
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
+
+        def exploding_get_doc_hooks():
+            raise RuntimeError("hooks DB table missing")
+
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app._patch_app_resolution()
+
+        frappe.get_doc_hooks = exploding_get_doc_hooks
+        app._patch_hooks_resolution()
+
+        result = frappe.get_doc_hooks()
+        assert result == {}
+
+    def test_get_doc_hooks_handles_non_dict_return(self):
+        """If original returns non-dict, return {} safely."""
+        from frappe_microservice.core import MicroserviceApp
+        from tests.test_microservice_app import _reset_isolation_guard, _reset_hooks_patch_guard
+
+        _reset_isolation_guard()
+        _reset_hooks_patch_guard()
+        app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
+
+        frappe.get_doc_hooks = MagicMock(return_value="not-a-dict")
+
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app._patch_app_resolution()
+
+        app._patch_hooks_resolution()
+
+        result = frappe.get_doc_hooks()
+        assert result == {}
+
+
+class TestUpdateDocValidation:
+    """update_doc must reject None/invalid data arguments."""
+
+    @pytest.fixture
+    def db(self):
+        get_tenant_id = MagicMock(return_value="test_tenant")
+        return TenantAwareDB(get_tenant_id)
+
+    @patch("frappe.get_doc", create=True)
+    def test_update_doc_none_data_raises(self, mock_get_doc, db):
+        mock_doc = MagicMock()
+        mock_doc.tenant_id = "test_tenant"
+        mock_get_doc.return_value = mock_doc
+        with pytest.raises(ValueError, match="non-empty dict"):
+            db.update_doc("Sales Order", "SO-001", None)
+
+    @patch("frappe.get_doc", create=True)
+    def test_update_doc_empty_dict_raises(self, mock_get_doc, db):
+        mock_doc = MagicMock()
+        mock_doc.tenant_id = "test_tenant"
+        mock_get_doc.return_value = mock_doc
+        with pytest.raises(ValueError, match="non-empty dict"):
+            db.update_doc("Sales Order", "SO-001", {})
+
+    @patch("frappe.get_doc", create=True)
+    def test_update_doc_non_dict_raises(self, mock_get_doc, db):
+        mock_doc = MagicMock()
+        mock_doc.tenant_id = "test_tenant"
+        mock_get_doc.return_value = mock_doc
+        with pytest.raises(ValueError, match="non-empty dict"):
+            db.update_doc("Sales Order", "SO-001", "bad")
+
+
+class TestCommitRollbackGuard:
+    """commit/rollback must not crash when frappe.db is None."""
+
+    @pytest.fixture
+    def db(self):
+        get_tenant_id = MagicMock(return_value="test_tenant")
+        return TenantAwareDB(get_tenant_id)
+
+    def test_commit_when_frappe_db_none(self, db):
+        original_db = frappe.db
+        try:
+            frappe.db = None
+            result = db.commit()
+            assert result is None
+        finally:
+            frappe.db = original_db
+
+    def test_rollback_when_frappe_db_none(self, db):
+        original_db = frappe.db
+        try:
+            frappe.db = None
+            result = db.rollback()
+            assert result is None
+        finally:
+            frappe.db = original_db
+
+    def test_commit_when_frappe_db_exists(self, db):
+        frappe.db.commit.return_value = True
+        result = db.commit()
+        frappe.db.commit.assert_called_once()
+
+    def test_rollback_when_frappe_db_exists(self, db):
+        frappe.db.rollback.return_value = True
+        result = db.rollback()
+        frappe.db.rollback.assert_called_once()
+
+
+class TestGetUserTenantIdEdgeCases:
+    """Edge cases in get_user_tenant_id."""
+
+    def test_no_session_resolves_to_guest(self):
+        """When frappe.session is None, defaults to Guest and returns None."""
+        from frappe_microservice.core import get_user_tenant_id
+        original_session = frappe.session
+        try:
+            frappe.session = None
+            result = get_user_tenant_id()
+            assert result is None
+        finally:
+            frappe.session = original_session
+
+    def test_session_without_user_attr(self):
+        """When frappe.session exists but has no user, defaults to Guest."""
+        from frappe_microservice.core import get_user_tenant_id
+        original_session = frappe.session
+        try:
+            frappe.session = type('FakeSession', (), {})()
+            result = get_user_tenant_id()
+            assert result is None
+        finally:
+            frappe.session = original_session
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--cov=frappe_microservice.core', '--cov-report=html'])

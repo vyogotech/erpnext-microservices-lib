@@ -890,10 +890,11 @@ class TestAppNotInstalledErrorHandling:
         with pytest.raises(AttributeError, match="non-installed app"):
             frappe.get_attr("frappe.utils.now")
 
-    def test_allowed_app_import_error_propagates(self):
+    def test_allowed_app_import_error_becomes_attribute_error(self):
         """
-        If an allowed app's hook genuinely can't be imported (code error),
-        the original error should propagate, not be silently swallowed.
+        If an allowed app's hook can't be imported, the ImportError is converted
+        to AttributeError so Frappe's hook dispatcher can skip it gracefully
+        instead of crashing the request.
         """
         _reset_isolation()
         app = MicroserviceApp(
@@ -910,5 +911,5 @@ class TestAppNotInstalledErrorHandling:
         frappe.get_attr = raising_get_attr
         app._patch_hooks_resolution()
 
-        with pytest.raises(ImportError, match="No module named"):
+        with pytest.raises(AttributeError, match="non-installed app"):
             frappe.get_attr("frappe.nonexistent.module.func")

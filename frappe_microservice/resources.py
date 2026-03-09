@@ -55,8 +55,14 @@ class ResourceMixin:
 
                         fields = request.args.get(
                             'fields', '*').split(',') if request.args.get('fields') else None
-                        limit = int(request.args.get('limit', 20))
-                        offset = int(request.args.get('offset', 0))
+                        try:
+                            limit = int(request.args.get('limit', 20))
+                        except (ValueError, TypeError):
+                            limit = 20
+                        try:
+                            offset = int(request.args.get('offset', 0))
+                        except (ValueError, TypeError):
+                            offset = 0
                         order_by = request.args.get(
                             'order_by', 'modified desc')
 

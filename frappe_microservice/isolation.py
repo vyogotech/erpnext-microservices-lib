@@ -126,36 +126,144 @@ class IsolationMixin:
         Safe because frappe.local is thread-local -- does not write back to
         Redis, does not affect the central site or other services.
         """
-        allowed_apps = self._get_allowed_apps()
+        try:
+            allowed_apps = self._get_allowed_apps()
 
-        if frappe.local.app_modules:
-            original_count = len(frappe.local.app_modules)
-            frappe.local.app_modules = {
-                app: modules
-                for app, modules in frappe.local.app_modules.items()
-                if app in allowed_apps
-            }
-            filtered_count = len(frappe.local.app_modules)
-            if original_count != filtered_count:
-                self.logger.info(
-                    f"Filtered module maps: {original_count} -> {filtered_count} apps "
-                    f"(removed {original_count - filtered_count} central-site apps)")
+            app_modules = getattr(frappe.local, 'app_modules', None)
+            if app_modules and isinstance(app_modules, dict):
+                original_count = len(app_modules)
+                frappe.local.app_modules = {
+                    app: modules
+                    for app, modules in app_modules.items()
+                    if app in allowed_apps
+                }
+                filtered_count = len(frappe.local.app_modules)
+                if original_count != filtered_count:
+                    self.logger.info(
+                        f"Filtered module maps: {original_count} -> {filtered_count} apps "
+                        f"(removed {original_count - filtered_count} central-site apps)")
 
-        # Rebuild module_app from filtered app_modules so get_module_path etc. are correct.
-        frappe.local.module_app = {}
-        for app, modules in (frappe.local.app_modules or {}).items():
-            for module in modules:
-                frappe.local.module_app[module] = app
+            frappe.local.module_app = {}
+            for app, modules in (getattr(frappe.local, 'app_modules', None) or {}).items():
+                if not isinstance(modules, (list, tuple)):
+                    continue
+                for module in modules:
+                    frappe.local.module_app[module] = app
+        except Exception as e:
+            self.logger.warning(
+                "Error filtering module maps: %s. Resetting to empty.",
+                e,
+                exc_info=True,
+            )
+            frappe.local.module_app = {}
 
     def _patch_hooks_resolution(self):
         """
-        Patch frappe.get_doc_hooks() and frappe.get_attr() to filter out
-        hooks from apps not in the allowed list.
-
+        Patch frappe.get_doc_hooks(), frappe.get_attr(), and frappe._load_app_hooks
+        so that:
+        - Hooks from non-allowed apps are filtered out.
+        - Apps that are in the installed list but have no Python hooks module
+          (e.g. non-Frappe microservices like signup-service) are skipped instead
+          of raising ModuleNotFoundError.
         MUST be called AFTER frappe.connect() because hook resolution may
         need a database connection.
         """
         allowed_apps = self._get_allowed_apps()
+
+        # Patch _load_app_hooks so apps without a loadable hooks module (e.g. signup_service)
+        # are skipped instead of raising. Required when the "service app" is in
+        # get_installed_apps() but is not a Frappe app and has no app.hooks module.
+        if not getattr(frappe, "_microservice_load_app_hooks_patched", False):
+            import inspect
+            import types
+
+            original_load_app_hooks = frappe._load_app_hooks
+
+            def microservice_load_app_hooks(app_name=None):
+                hooks = {}
+                try:
+                    apps = [app_name] if app_name else frappe.get_installed_apps(_ensure_on_bench=True)
+                except Exception as e:
+                    self.logger.warning(
+                        "Failed to get installed apps for hook loading: %s. Returning empty hooks.",
+                        e,
+                        exc_info=True,
+                    )
+                    return hooks
+                if not isinstance(apps, (list, tuple)):
+                    self.logger.warning(
+                        "get_installed_apps returned non-sequence %s. Returning empty hooks.",
+                        type(apps).__name__,
+                    )
+                    return hooks
+                for app in apps:
+                    if not app or not isinstance(app, str):
+                        continue
+                    try:
+                        app_hooks = frappe.get_module(f"{app}.hooks")
+                    except (ImportError, ModuleNotFoundError) as e:
+                        if not getattr(frappe.local, "flags", None) or not getattr(
+                            frappe.local.flags, "in_install_app", False
+                        ):
+                            self.logger.debug(
+                                "Skipping hooks for app %r (no hooks module): %s",
+                                app,
+                                e,
+                            )
+                        continue
+                    except Exception as e:
+                        self.logger.warning(
+                            "Unexpected error loading hooks module for app %r: %s. Skipping.",
+                            app,
+                            e,
+                            exc_info=True,
+                        )
+                        continue
+                    if app_hooks is None:
+                        continue
+                    try:
+                        def _is_valid_hook(obj):
+                            return not isinstance(
+                                obj, (types.ModuleType, types.FunctionType, type)
+                            )
+                        for key, value in inspect.getmembers(
+                            app_hooks, predicate=_is_valid_hook
+                        ):
+                            if key.startswith("_"):
+                                continue
+                            try:
+                                frappe.append_hook(hooks, key, value)
+                            except Exception as e:
+                                self.logger.debug(
+                                    "Skipping hook %r from app %r: %s",
+                                    key,
+                                    app,
+                                    e,
+                                )
+                    except Exception as e:
+                        self.logger.warning(
+                            "Error reading hooks from app %r: %s. Skipping app.",
+                            app,
+                            e,
+                            exc_info=True,
+                        )
+                return hooks
+
+            frappe._load_app_hooks = microservice_load_app_hooks
+            # Cached wrappers close over the original _load_app_hooks; replace them
+            # so get_hooks() uses our implementation in all code paths.
+            frappe._request_cached_load_app_hooks = frappe.request_cache(
+                microservice_load_app_hooks
+            )
+            frappe._site_cached_load_app_hooks = frappe.site_cache(
+                microservice_load_app_hooks
+            )
+            frappe._microservice_load_app_hooks_patched = True
+            if hasattr(frappe, "client_cache") and frappe.client_cache:
+                frappe.client_cache.delete_key("app_hooks")
+            self.logger.info(
+                "Patched _load_app_hooks to skip apps without a hooks module"
+            )
 
         original_get_doc_hooks = frappe.get_doc_hooks
 
@@ -164,14 +272,31 @@ class IsolationMixin:
             Return doc_events hooks with handlers from non-allowed apps removed.
             Handler strings are "app.module.func"; we keep only those whose app is in allowed_apps.
             """
-            all_hooks = original_get_doc_hooks()
+            try:
+                all_hooks = original_get_doc_hooks()
+            except Exception as e:
+                self.logger.warning(
+                    "original_get_doc_hooks() raised %s: %s. Returning empty hooks.",
+                    type(e).__name__, e,
+                    exc_info=True,
+                )
+                return {}
+
+            if not isinstance(all_hooks, dict):
+                return {}
 
             filtered_hooks = {}
             for doctype, events in all_hooks.items():
                 filtered_hooks[doctype] = {}
+                if not isinstance(events, dict):
+                    continue
                 for event, handlers in events.items():
                     filtered_handlers = []
+                    if not isinstance(handlers, (list, tuple)):
+                        continue
                     for handler in handlers:
+                        if not isinstance(handler, str):
+                            continue
                         if '.' in handler:
                             app_name = handler.split('.')[0]
                             if app_name in allowed_apps:
@@ -195,8 +320,14 @@ class IsolationMixin:
             """
             Resolve a method string (e.g. 'erpnext.stock.utils.func'). If the
             app part is not in allowed_apps, raise AttributeError so the hook
-            is skipped. Also catch AppNotInstalledError and convert to AttributeError.
+            is skipped. Also catch AppNotInstalledError/ImportError and convert
+            to AttributeError.
             """
+            if not isinstance(method_string, str):
+                raise AttributeError(
+                    f"method_string must be a string, got {type(method_string).__name__}"
+                )
+
             if '.' in method_string:
                 app_name = method_string.split('.')[0]
                 if app_name not in allowed_apps:
@@ -208,7 +339,11 @@ class IsolationMixin:
 
             try:
                 return original_get_attr(method_string)
-            except frappe.AppNotInstalledError as e:
+            except (
+                getattr(frappe, 'AppNotInstalledError', type(None)),
+                ImportError,
+                ModuleNotFoundError,
+            ) as e:
                 app_name = method_string.split('.')[0] if '.' in method_string else 'unknown'
                 self.logger.debug(
                     f"Skipping hook '{method_string}' - "

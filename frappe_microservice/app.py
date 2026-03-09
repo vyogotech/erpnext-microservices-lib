@@ -265,26 +265,42 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                 needs_init = True
 
             if needs_init:
-                self._patch_app_resolution()
-                frappe.init(site=self.frappe_site, sites_path=self.sites_path)
-                self._filter_module_maps()
+                try:
+                    self._patch_app_resolution()
+                    frappe.init(site=self.frappe_site, sites_path=self.sites_path)
+                    self._filter_module_maps()
 
-                if self.db_host:
-                    frappe.local.conf.db_host = self.db_host
-                    self.logger.info(f"Overriding DB host to: {self.db_host}")
+                    if self.db_host:
+                        frappe.local.conf.db_host = self.db_host
+                        self.logger.info(f"Overriding DB host to: {self.db_host}")
 
-                frappe.connect(set_admin_as_user=False)
+                    frappe.connect(set_admin_as_user=False)
 
-                if hasattr(frappe, 'session'):
-                    frappe.session.user = 'Guest'
-                    frappe.session.sid = None
-                    self.logger.debug(
-                        "Initialized session as Guest (will be set after validation)")
+                    if hasattr(frappe, 'session'):
+                        frappe.session.user = 'Guest'
+                        frappe.session.sid = None
+                        self.logger.debug(
+                            "Initialized session as Guest (will be set after validation)")
 
-                self._patch_hooks_resolution()
+                    self._patch_hooks_resolution()
+                except Exception as e:
+                    self.logger.error(
+                        "Frappe init/connect failed: %s. Returning 503.",
+                        e,
+                        exc_info=True,
+                    )
+                    return jsonify({
+                        "status": "error",
+                        "message": "Service temporarily unavailable. Framework initialization failed.",
+                        "type": type(e).__name__,
+                        "code": 503,
+                    }), 503
 
-            frappe.local.form_dict = frappe._dict()
-            frappe.local.request_ip = request.remote_addr
+            try:
+                frappe.local.form_dict = frappe._dict()
+                frappe.local.request_ip = request.remote_addr
+            except Exception:
+                pass
 
             g._frappe_rolled_back = False
 
@@ -406,7 +422,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                     return result
 
                 except (frappe.PermissionError, frappe.AuthenticationError) as e:
-                    frappe.db.rollback()
+                    if hasattr(frappe, 'db') and frappe.db:
+                        frappe.db.rollback()
                     g._frappe_rolled_back = True
                     self.logger.warning(
                         f"Access denied in {f.__name__}: {str(e)}\n{traceback.format_exc()}")
@@ -420,7 +437,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                     }), 403
 
                 except (frappe.DoesNotExistError, frappe.LinkValidationError) as e:
-                    frappe.db.rollback()
+                    if hasattr(frappe, 'db') and frappe.db:
+                        frappe.db.rollback()
                     g._frappe_rolled_back = True
                     self.logger.warning(
                         f"Resource not found in {f.__name__}: {str(e)}")
@@ -433,7 +451,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                     }), 404
 
                 except (frappe.ValidationError, ValueError, TypeError, KeyError) as e:
-                    frappe.db.rollback()
+                    if hasattr(frappe, 'db') and frappe.db:
+                        frappe.db.rollback()
                     g._frappe_rolled_back = True
                     self.logger.warning(
                         f"Invalid request in {f.__name__}: {str(e)}")
