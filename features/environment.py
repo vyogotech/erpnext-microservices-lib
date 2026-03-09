@@ -14,6 +14,10 @@ mock_frappe.session = MagicMock()
 
 # Ensure name 'frappe' is in sys.modules
 sys.modules['frappe'] = mock_frappe
+# central.py imports FrappeClient from frappe.frappeclient; mock it so BDD runs without Frappe installed
+mock_frappeclient = MagicMock()
+mock_frappeclient.FrappeClient = MagicMock()
+sys.modules['frappe.frappeclient'] = mock_frappeclient
 
 def before_scenario(context, scenario):
     """Reset mocks before each scenario"""
