@@ -364,22 +364,23 @@ class TenantAwareDB:
 
         Permission Handling:
             The ignore_permissions parameter can be passed in kwargs and will be forwarded
-            to Frappe's doc.insert() method. However, use with caution:
+            to Frappe's doc.insert() method. However, use with extreme caution:
 
             APPROPRIATE USAGE:
-            - During signup/initialization (no user context exists)
-            - System-level operations (migrations, scheduled tasks)
-            - Administrative operations that must bypass user permissions
+            - During signup/initialization: When no user context exists yet (e.g., creating the first admin).
+            - System-level operations: Migrations, scheduled tasks, or automated background workers.
+            - Internal state management: Updating records where the user has no direct control.
 
             INAPPROPRIATE USAGE:
-            - Regular business operations (use role-based permissions instead)
-            - User-initiated actions (rely on proper role assignment)
-            - Microservice endpoints (should respect user permissions)
+            - Regular business operations: Creating orders, customers, or items initiated by a user.
+            - Public microservice endpoints: API calls from external systems should generally be authenticated and authorized.
+            - User-initiated actions: Bypassing permissions often indicates a missing role assignment.
 
             BEST PRACTICE:
-            Instead of using ignore_permissions, assign proper roles to users during
-            signup (System Manager, Sales User, Stock User, etc.) and let Frappe's
-            permission system handle access control.
+            Instead of using ignore_permissions, ensure users are assigned proper roles during
+            signup (System Manager, Sales User, Stock User, etc.) and create explicit 
+            User Permission records for the Company and Customer they own. This allows 
+            Frappe's permission system to work correctly if the user ever logs into the Desk.
 
         Usage:
             doc = db.insert_doc('Sales Order', {'customer': 'CUST-001'})

@@ -28,7 +28,7 @@ Quick Start:
 For detailed documentation, visit: https://github.com/your-repo/frappe-microservice
 """
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Frappe MS Team"
 
 from .core import MicroserviceApp, create_microservice, TenantAwareDB, get_user_tenant_id

@@ -9,7 +9,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="frappe-microservice",
-    version="1.0.0",
+    version="1.1.0",
     author="Vyogo Technologies",
     author_email="varun@vyogolabs.tech",
     description="A Python framework for building secure, isolated Frappe microservices",

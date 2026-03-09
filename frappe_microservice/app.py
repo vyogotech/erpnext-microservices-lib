@@ -22,6 +22,7 @@ from frappe_microservice.tenant import TenantAwareDB, get_user_tenant_id
 from frappe_microservice.isolation import IsolationMixin
 from frappe_microservice.auth import AuthMixin
 from frappe_microservice.resources import ResourceMixin
+from frappe_microservice.central import CentralSiteClient
 
 try:
     from flasgger import Swagger
@@ -70,7 +71,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                  get_tenant_id_func=None,
                  load_framework_hooks=None,
                  log_level=None,
-                 otel_exporter_url=None):
+                 otel_exporter_url=None,
+                 doctypes_path=None):
         """
         Initialize the microservice: create Flask app, set up logging and optional
         OpenTelemetry, resolve load_framework_hooks (frappe + service app + config),
@@ -138,6 +140,7 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
 
         self._setup_middleware()
         self._register_built_in_routes()
+        self._central_client = None
 
         if Swagger:
             self.swagger = Swagger(self.flask_app, template={
@@ -145,7 +148,7 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                 "info": {
                     "title": f"{self.name} API",
                     "description": f"Interactive API documentation for {self.name}",
-                    "version": "1.0.0"
+                    "version": "1.1.0"
                 },
                 "basePath": "/",
                 "schemes": ["http", "https"],
@@ -162,6 +165,19 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         else:
             self.swagger = None
             self.logger.warning("Flasgger not found. Swagger documentation disabled.")
+
+        self.doctypes_path = doctypes_path
+        self._service_doctype_names = set()
+
+    @property
+    def central(self):
+        """
+        Returns a Frappe-like API client for the Central Site.
+        Lazy-initialized using config from env or self.central_site_url.
+        """
+        if not self._central_client:
+            self._central_client = CentralSiteClient(url=self.central_site_url)
+        return self._central_client
 
     def _setup_logging(self):
         """
@@ -251,61 +267,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         """
 
         @self.flask_app.before_request
-        def setup_frappe_context():
-            """
-            Initialize Frappe for each request/thread. Only runs full init when
-            frappe.local.site is not set (first request or new thread). Order matters:
-            patch app resolution -> init -> filter module maps -> connect -> patch hooks.
-            """
-            needs_init = False
-            try:
-                needs_init = not hasattr(frappe, 'local') or not hasattr(
-                    frappe.local, 'site') or not frappe.local.site
-            except (AttributeError, RuntimeError):
-                needs_init = True
-
-            if needs_init:
-                try:
-                    self._patch_app_resolution()
-                    frappe.init(site=self.frappe_site, sites_path=self.sites_path)
-                    self._filter_module_maps()
-
-                    if self.db_host:
-                        frappe.local.conf.db_host = self.db_host
-                        self.logger.info(f"Overriding DB host to: {self.db_host}")
-
-                    frappe.connect(set_admin_as_user=False)
-
-                    if hasattr(frappe, 'session'):
-                        frappe.session.user = 'Guest'
-                        frappe.session.sid = None
-                        self.logger.debug(
-                            "Initialized session as Guest (will be set after validation)")
-
-                    self._patch_hooks_resolution()
-                except Exception as e:
-                    self.logger.error(
-                        "Frappe init/connect failed: %s. Returning 503.",
-                        e,
-                        exc_info=True,
-                    )
-                    return jsonify({
-                        "status": "error",
-                        "message": "Service temporarily unavailable. Framework initialization failed.",
-                        "type": type(e).__name__,
-                        "code": 503,
-                    }), 503
-
-            try:
-                frappe.local.form_dict = frappe._dict()
-                frappe.local.request_ip = request.remote_addr
-            except Exception:
-                pass
-
-            g._frappe_rolled_back = False
-
-            g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
-            self.logger.info(f"Request started: {request.method} {request.path} [request_id={g.request_id}]")
+        def frappe_before_request():
+            return self.setup_frappe_context()
 
         @self.flask_app.after_request
         def cleanup_frappe_context(response):
@@ -355,6 +318,67 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                 "error": str(e),
                 "details": traceback.format_exc() if self.flask_app.debug or os.getenv('DEBUG') == '1' else None
             }), 500
+
+    def setup_frappe_context(self):
+        """
+        Initialize Frappe for each request/thread. Only runs full init when
+        frappe.local.site is not set (first request or new thread). Order matters:
+        patch app resolution -> init -> filter module maps -> connect ->
+        sync service doctypes -> patch hooks.
+        """
+        needs_init = False
+        try:
+            needs_init = not hasattr(frappe, 'local') or not hasattr(
+                frappe.local, 'site') or not frappe.local.site
+        except (AttributeError, RuntimeError):
+            needs_init = True
+
+        if needs_init:
+            try:
+                self._patch_app_resolution()
+                frappe.init(site=self.frappe_site, sites_path=self.sites_path)
+                self._filter_module_maps()
+
+                self._patch_controller_resolution()
+
+                if self.db_host:
+                    frappe.local.conf.db_host = self.db_host
+                    self.logger.info(f"Overriding DB host to: {self.db_host}")
+
+                frappe.connect(set_admin_as_user=False)
+
+                self._sync_service_doctypes()
+
+                if hasattr(frappe, 'session'):
+                    frappe.session.user = 'Guest'
+                    frappe.session.sid = None
+                    self.logger.debug(
+                        "Initialized session as Guest (will be set after validation)")
+
+                self._patch_hooks_resolution()
+            except Exception as e:
+                self.logger.error(
+                    "Frappe init/connect failed: %s. Returning 503.",
+                    e,
+                    exc_info=True,
+                )
+                return jsonify({
+                    "status": "error",
+                    "message": "Service temporarily unavailable. Framework initialization failed.",
+                    "type": type(e).__name__,
+                    "code": 503,
+                }), 503
+
+        try:
+            frappe.local.form_dict = frappe._dict()
+            frappe.local.request_ip = request.remote_addr
+        except Exception:
+            pass
+
+        g._frappe_rolled_back = False
+
+        g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
+        self.logger.info(f"Request started: {request.method} {request.path} [request_id={g.request_id}]")
 
     def _register_built_in_routes(self):
         """

@@ -39,6 +39,7 @@ class TestSwagger:
         pass
 
 def test_swagger_real_integration():
+    pytest.importorskip("flasgger")
     from flasgger import Swagger
     # Mock frappe to avoid init issues
     with patch('frappe.init'), patch('frappe.connect'):

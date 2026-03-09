@@ -260,7 +260,7 @@ class IsolationMixin:
             )
             frappe._microservice_load_app_hooks_patched = True
             if hasattr(frappe, "client_cache") and frappe.client_cache:
-                frappe.client_cache.delete_key("app_hooks")
+                frappe.client_cache.delete_value("app_hooks")
             self.logger.info(
                 "Patched _load_app_hooks to skip apps without a hooks module"
             )
@@ -354,3 +354,120 @@ class IsolationMixin:
         frappe.get_attr = microservice_get_attr
         self.logger.info(
             f"Hooks resolution patched: allowed apps = {sorted(allowed_apps)}")
+
+    def _sync_service_doctypes(self):
+        """
+        Scan doctypes_path for DocType JSONs.  For each JSON:
+        - Register the doctype name in self._service_doctype_names.
+        - If the DocType does NOT exist in the DB, create it via import_doc.
+        - If it already exists, skip DB changes (never delete/overwrite).
+        - Always register the module mapping in frappe.local so
+          get_module_app() resolves correctly for this service.
+        """
+        if not getattr(self, "doctypes_path", None):
+            return
+
+        import os
+        from pathlib import Path
+        import json
+
+        if not os.path.isdir(self.doctypes_path):
+            self.logger.warning(f"DocTypes directory not found: {self.doctypes_path}")
+            return
+
+        imported_any = False
+        doctypes_dir = Path(self.doctypes_path)
+        for json_path in doctypes_dir.glob("*/*.json"):
+            try:
+                with open(json_path, 'r') as f:
+                    doc = json.load(f)
+
+                doc_name = doc.get("name")
+                if doc_name:
+                    self._service_doctype_names.add(doc_name)
+                    self.logger.debug(f"Found service DocType: {doc_name}")
+
+                    if not frappe.db.exists("DocType", doc_name):
+                        self.logger.info(f"Creating DocType {doc_name} in DB...")
+                        frappe.modules.import_file.import_doc(
+                            doc,
+                            ignore_version=True,
+                            reset_permissions=False,
+                        )
+                        imported_any = True
+                    else:
+                        self.logger.debug(
+                            f"DocType {doc_name} already exists in DB, skipping import"
+                        )
+
+                service_app = self.name.replace("-", "_")
+                if not hasattr(frappe.local, "module_app"):
+                    frappe.local.module_app = {}
+                if not hasattr(frappe.local, "app_modules"):
+                    frappe.local.app_modules = {}
+
+                # Register module from JSON (our canonical module name)
+                module = doc.get("module")
+                if module:
+                    scrubbed_module = module.lower().replace(" ", "_")
+                    frappe.local.module_app[scrubbed_module] = service_app
+                    if service_app not in frappe.local.app_modules:
+                        frappe.local.app_modules[service_app] = []
+                    if scrubbed_module not in frappe.local.app_modules[service_app]:
+                        frappe.local.app_modules[service_app].append(scrubbed_module)
+
+                # When doctype already exists in DB, it may have a different module (e.g. Saas Platform).
+                # Register that module -> service_app so Frappe resolves it without "Module X not found".
+                if frappe.db.exists("DocType", doc_name):
+                    try:
+                        existing_module = frappe.db.get_value("DocType", doc_name, "module")
+                        if existing_module:
+                            existing_scrubbed = existing_module.lower().replace(" ", "_")
+                            frappe.local.module_app[existing_scrubbed] = service_app
+                            if existing_scrubbed not in (
+                                frappe.local.app_modules.get(service_app) or []
+                            ):
+                                if service_app not in frappe.local.app_modules:
+                                    frappe.local.app_modules[service_app] = []
+                                frappe.local.app_modules[service_app].append(existing_scrubbed)
+                    except Exception:
+                        pass
+
+            except Exception as e:
+                self.logger.error(
+                    f"Error reading/syncing DocType JSON at {json_path}: {e}",
+                    exc_info=True,
+                )
+
+        if imported_any:
+            frappe.db.commit()
+
+    def _patch_controller_resolution(self):
+        """
+        Patch frappe.model.base_document.import_controller so that service
+        doctypes whose Python module cannot be found fall back to
+        ControllerRegistry (if registered) or base Document, instead of
+        raising ImportError.
+        """
+        if getattr(frappe, "_microservice_controller_patched", False):
+            return
+
+        original_import_controller = frappe.model.base_document.import_controller
+        service_doctype_names = self._service_doctype_names
+
+        def microservice_import_controller(doctype):
+            try:
+                return original_import_controller(doctype)
+            except (ImportError, ModuleNotFoundError):
+                if doctype in service_doctype_names:
+                    from frappe_microservice.controller import get_controller_registry
+                    registry = get_controller_registry()
+                    controller_class = registry.get_controller(doctype)
+                    if controller_class:
+                        return controller_class
+
+                    return frappe.model.document.Document
+                raise
+
+        frappe.model.base_document.import_controller = microservice_import_controller
+        frappe._microservice_controller_patched = True

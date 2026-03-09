@@ -17,6 +17,12 @@ mock_frappe.session = MagicMock()
 
 # Ensure name 'frappe' is in sys.modules
 sys.modules['frappe'] = mock_frappe
+sys.modules['frappe.frappeclient'] = MagicMock()
+sys.modules['frappe.modules'] = MagicMock()
+sys.modules['frappe.modules.import_file'] = MagicMock()
+sys.modules['frappe.model'] = MagicMock()
+sys.modules['frappe.model.base_document'] = MagicMock()
+sys.modules['frappe.model.document'] = MagicMock()
 
 @pytest.fixture(autouse=True)
 def setup_mocks():

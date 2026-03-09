@@ -279,6 +279,42 @@ def create_order(user):
 
 See [signup-service/](../signup-service/) for a complete example with controllers.
 
+### Central Site API Client
+
+The `CentralSiteClient` provides a standardized way for microservices to communicate back to the Central Site using a Frappe-like API. It is available as `app.central` in any `MicroserviceApp`.
+
+```python
+from frappe_microservice import create_microservice
+
+app = create_microservice("my-service")
+
+@app.secure_route('/sync', methods=['POST'])
+def sync_with_central(user):
+    # Fetch a document from the Central Site
+    tenant_info = app.central.get_doc("Tenant", "tenant-123")
+    
+    # Update a record on the Central Site
+    app.central.update("Tenant", "tenant-123", {"status": "Active"})
+    
+    # Call a whitelisted method
+    result = app.central.call("some_whitelisted_method", {"param": "value"})
+    
+    return {"status": "synced"}
+```
+
+**Configuration Environment Variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CENTRAL_SITE_URL` | URL of the Central Site | `http://central-site:8000` |
+| `CENTRAL_SITE_API_KEY` | API Key for authentication | - |
+| `CENTRAL_SITE_API_SECRET` | API Secret for authentication | - |
+| `CENTRAL_SITE_USER` | Username (alternative to API Key) | - |
+| `CENTRAL_SITE_PASSWORD` | Password (alternative to API Secret) | - |
+| `CENTRAL_SITE_TIMEOUT` | Request timeout in seconds | `10` |
+
+The client is **lazily initialized**, meaning no connection attempts are made until the first time `app.central` is accessed.
+
 ## Container Deployment (Library Entrypoint)
 
 The base image runs the **library entrypoint** so services do not need their own `entrypoint.py`. The framework discovers your app via environment variables and starts it.
