@@ -362,11 +362,13 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                             self._sync_service_doctypes()
                             self._startup_done = True
 
+
                 if hasattr(frappe, 'session'):
                     frappe.session.user = 'Guest'
                     frappe.session.sid = None
                     self.logger.debug(
                         "Initialized session as Guest (will be set after validation)")
+
             except Exception as e:
                 self.logger.error(
                     "Frappe init/connect failed: %s. Returning 503.",

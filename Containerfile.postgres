@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install /tmp/frappe-microserv
     pip install \
     pyjwt==2.8.0 \
     requests==2.32.0 \
-    redis==4.5.5 \
+    redis==7.2.1 \
     psycopg2-binary && \
     rm -rf /tmp/frappe-microservice-lib && \
     find /opt/venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && \
