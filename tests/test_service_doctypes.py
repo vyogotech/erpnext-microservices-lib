@@ -334,8 +334,8 @@ class TestSetupFrappeContextWiring:
             "filter_maps",
             "patch_controller",
             "frappe_connect",
-            "sync_doctypes",
             "patch_hooks",
+            "sync_doctypes",
         ]
         assert calls == expected_order
 
