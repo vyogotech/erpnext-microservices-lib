@@ -17,6 +17,7 @@ import os
 import logging
 import traceback
 import uuid
+import threading
 from frappe_microservice.entrypoint import create_site_config
 from frappe_microservice.tenant import TenantAwareDB, get_user_tenant_id
 from frappe_microservice.isolation import IsolationMixin
@@ -168,6 +169,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
 
         self.doctypes_path = doctypes_path
         self._service_doctype_names = set()
+        self._startup_done = False
+        self._startup_lock = threading.Lock()
 
     @property
     def central(self):
@@ -321,10 +324,15 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
 
     def setup_frappe_context(self):
         """
-        Initialize Frappe for each request/thread. Only runs full init when
-        frappe.local.site is not set (first request or new thread). Order matters:
-        patch app resolution -> init -> filter module maps -> connect ->
-        sync service doctypes -> patch hooks.
+        Initialize Frappe for each request/thread.
+
+        Per-thread (runs when frappe.local.site is unset, i.e. first request
+        on a new thread): patch app resolution, frappe.init, filter module
+        maps, patch controller, frappe.connect, session setup.
+
+        Once globally (first thread only): sync service doctypes, patch hooks
+        resolution. These patch module-level functions and touch the DB; doing
+        them more than once is wasteful and can cause recursion/wrapping bugs.
         """
         needs_init = False
         try:
@@ -347,15 +355,18 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
 
                 frappe.connect(set_admin_as_user=False)
 
-                self._sync_service_doctypes()
+                if not self._startup_done:
+                    with self._startup_lock:
+                        if not self._startup_done:
+                            self._patch_hooks_resolution()
+                            self._sync_service_doctypes()
+                            self._startup_done = True
 
                 if hasattr(frappe, 'session'):
                     frappe.session.user = 'Guest'
                     frappe.session.sid = None
                     self.logger.debug(
                         "Initialized session as Guest (will be set after validation)")
-
-                self._patch_hooks_resolution()
             except Exception as e:
                 self.logger.error(
                     "Frappe init/connect failed: %s. Returning 503.",
@@ -388,10 +399,13 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
 
         @self.flask_app.route('/health', methods=['GET'])
         def health():
+            import datetime
             return jsonify({
                 "status": "healthy",
                 "service": self.name,
-                "site": self.frappe_site
+                "site": self.frappe_site,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "database": "connected"
             })
 
     def secure_route(self, rule, **options):

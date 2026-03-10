@@ -57,8 +57,9 @@ class TestDuplicateCodeRemoval:
         app = MicroserviceApp("test-service", central_site_url="http://central")
 
         # Reset guard
-        if hasattr(frappe, "_microservice_isolation_applied"):
-            delattr(frappe, "_microservice_isolation_applied")
+        for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+            if hasattr(frappe, flag):
+                delattr(frappe, flag)
 
         with patch("frappe.get_all_apps",
                     return_value=["frappe", "erpnext", "test_service"]):

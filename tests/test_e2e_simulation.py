@@ -25,8 +25,14 @@ from frappe_microservice.core import MicroserviceApp
 
 def _reset_isolation():
     """Reset all isolation state between tests."""
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in (
+        "_microservice_isolation_applied",
+        "_microservice_load_app_hooks_patched",
+        "_microservice_hooks_resolution_patched",
+        "_microservice_controller_patched",
+    ):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
 
 CENTRAL_SITE_APP_MODULES = {
@@ -539,6 +545,66 @@ class TestHooksContamination:
         handlers = filtered["User"]["on_update"]
         assert "plain_handler_no_dots" in handlers
         assert "frappe.core.on_update" in handlers
+
+    def test_get_attr_reentrancy_depth_guard_avoids_recursion(self):
+        """
+        When already inside the get_attr wrapper (depth > 0), a nested call
+        must delegate to the original get_attr only, avoiding RecursionError
+        (e.g. when hook code or query builder triggers get_attr again).
+        """
+        from frappe_microservice.isolation import _get_depth, _set_depth
+
+        _reset_isolation()
+        app = MicroserviceApp(
+            "signup-service",
+            load_framework_hooks=['frappe', 'erpnext'],
+        )
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app._patch_app_resolution()
+        app._patch_hooks_resolution()
+
+        try:
+            _set_depth(1)
+            result = frappe.get_attr("frappe.utils.now")
+            assert callable(result)
+        finally:
+            _set_depth(0)
+
+    def test_get_attr_nested_call_from_filters_hooks_no_recursion(self):
+        """
+        get_additional_filters_from_hooks() calls get_attr(hook)() for each
+        hook. If a hook's callable triggers get_attr again (e.g. DB query
+        path), the re-entrancy guard must prevent RecursionError.
+        We simulate that loop; skip when real Frappe (frappe.utils) is not
+        available (e.g. unit test env without Frappe installed).
+        """
+        pytest.importorskip("frappe.utils", reason="frappe.utils required")
+
+        def _hook_that_calls_get_attr_nested():
+            frappe.get_attr("frappe.utils.now")
+            return {}
+
+        _reset_isolation()
+        app = MicroserviceApp(
+            "signup-service",
+            load_framework_hooks=['frappe'],
+        )
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app._patch_app_resolution()
+        app._patch_hooks_resolution()
+
+        import frappe.utils as utils_mod
+        utils_mod._test_hook_nested = _hook_that_calls_get_attr_nested
+        try:
+            filter_hooks = ["frappe.utils._test_hook_nested"]
+            result = frappe._dict()
+            for hook in filter_hooks:
+                result.update(frappe.get_attr(hook)())
+            assert isinstance(result, (dict, type(frappe._dict())))
+        finally:
+            if hasattr(utils_mod, "_test_hook_nested"):
+                del utils_mod._test_hook_nested
+        _reset_isolation()
 
 
 class TestEdgeCases:

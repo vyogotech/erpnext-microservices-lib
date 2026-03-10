@@ -6,16 +6,16 @@ import frappe
 from frappe_microservice.core import MicroserviceApp
 
 
-def _reset_isolation_guard():
-    """Helper to reset the idempotency guard between tests."""
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
-
-
-def _reset_hooks_patch_guard():
-    """Reset hooks-patch idempotency so _patch_hooks_resolution() runs again."""
-    if hasattr(frappe, "_microservice_load_app_hooks_patched"):
-        delattr(frappe, "_microservice_load_app_hooks_patched")
+def _reset_microservice_guards():
+    """Reset microservice idempotency guards so patches can run again."""
+    for flag in (
+        "_microservice_isolation_applied",
+        "_microservice_load_app_hooks_patched",
+        "_microservice_hooks_resolution_patched",
+        "_microservice_controller_patched",
+    ):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
 
 # ============================================
@@ -84,6 +84,9 @@ class TestContaminationReproduction:
     microservice's Frappe context.
     """
 
+    def setup_method(self):
+        _reset_microservice_guards()
+
     def test_shared_db_leaks_central_site_apps(self):
         """get_installed_apps must NOT return central-site-only apps.
 
@@ -93,7 +96,7 @@ class TestContaminationReproduction:
         get_installed_apps must return only filesystem (apps.txt) apps
         filtered by load_framework_hooks.
         """
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "signup-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -119,7 +122,7 @@ class TestContaminationReproduction:
         _filter_module_maps() must clean frappe.local to only keep
         allowed apps' modules.
         """
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "signup-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -161,7 +164,7 @@ class TestContaminationReproduction:
         frappe.init() used unpatched functions and loaded central-site
         data. The new sequence must patch first, then init.
         """
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -224,7 +227,7 @@ class TestPatchAppResolution:
 
     def test_reads_filesystem_not_db(self):
         """Patched get_installed_apps reads from apps.txt, not the shared DB."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service", load_framework_hooks=['frappe', 'erpnext'])
 
         with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]) as mock_all:
@@ -239,7 +242,7 @@ class TestPatchAppResolution:
 
     def test_intersects_with_load_framework_hooks(self):
         """Only apps in BOTH apps.txt AND load_framework_hooks are returned."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -258,7 +261,7 @@ class TestPatchAppResolution:
 
     def test_service_app_name_always_included(self):
         """The service's own app name is always included."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "my-service",
             load_framework_hooks=['frappe']
@@ -273,7 +276,7 @@ class TestPatchAppResolution:
 
     def test_frappe_always_first(self):
         """frappe must always be the first app in the list."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['erpnext', 'frappe']
@@ -289,7 +292,7 @@ class TestPatchAppResolution:
 
     def test_idempotency(self):
         """Calling _patch_app_resolution twice must not double-wrap."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-app")
 
         with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
@@ -303,7 +306,7 @@ class TestPatchAppResolution:
 
     def test_get_all_apps_also_filtered(self):
         """The patched get_all_apps must also be filtered by allowed apps."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -326,7 +329,7 @@ class TestFilterModuleMaps:
 
     def test_removes_central_site_modules(self):
         """Contaminated app_modules from shared Redis are cleaned."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -346,7 +349,7 @@ class TestFilterModuleMaps:
 
     def test_rebuilds_reverse_map(self):
         """module_app must be rebuilt from the filtered app_modules."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe']
@@ -367,7 +370,7 @@ class TestFilterModuleMaps:
 
     def test_handles_none_app_modules(self):
         """Gracefully handle app_modules being None."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service")
 
         frappe.local.app_modules = None
@@ -379,7 +382,7 @@ class TestFilterModuleMaps:
 
     def test_handles_empty_app_modules(self):
         """Gracefully handle app_modules being empty dict."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service")
 
         frappe.local.app_modules = {}
@@ -394,9 +397,12 @@ class TestFilterModuleMaps:
 class TestPatchHooksResolution:
     """Tests for _patch_hooks_resolution() -- hook and attr filtering."""
 
+    def setup_method(self):
+        _reset_microservice_guards()
+
     def test_filters_doc_hooks_from_non_allowed_apps(self):
         """get_doc_hooks wrapper must exclude hooks from non-allowed apps."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -427,7 +433,7 @@ class TestPatchHooksResolution:
 
     def test_get_attr_raises_for_non_allowed_apps(self):
         """get_attr must raise AttributeError for hooks from non-allowed apps."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -445,7 +451,7 @@ class TestPatchHooksResolution:
 
     def test_get_attr_allows_frappe_and_allowed_apps(self):
         """get_attr must work normally for allowed apps."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=['frappe', 'erpnext']
@@ -466,6 +472,9 @@ class TestPatchHooksResolution:
 class TestLoadAppHooksErrorHandling:
     """Unit tests that _load_app_hooks (microservice_load_app_hooks) handles errors without raising."""
 
+    def setup_method(self):
+        _reset_microservice_guards()
+
     def _minimal_hooks_module(self):
         """Return a minimal object that inspect.getmembers treats as a hooks module."""
         ns = types.SimpleNamespace()
@@ -474,8 +483,7 @@ class TestLoadAppHooksErrorHandling:
 
     def test_missing_hooks_module_skipped_no_raise(self):
         """When one app has no hooks module (ModuleNotFoundError), skip it and return hooks dict."""
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=["frappe", "erpnext"],
@@ -504,8 +512,7 @@ class TestLoadAppHooksErrorHandling:
 
     def test_import_error_for_one_app_skipped_no_raise(self):
         """When one app's hooks raise ImportError, skip it and return hooks dict."""
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=["frappe", "erpnext"],
@@ -533,8 +540,7 @@ class TestLoadAppHooksErrorHandling:
 
     def test_get_installed_apps_raises_returns_empty_hooks(self):
         """When get_installed_apps() raises, return empty hooks dict and do not raise."""
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service")
 
         with patch(
@@ -547,8 +553,7 @@ class TestLoadAppHooksErrorHandling:
 
     def test_get_installed_apps_returns_non_sequence_returns_empty_hooks(self):
         """When get_installed_apps() returns None or non-sequence, return empty hooks."""
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service")
 
         with patch("frappe.get_installed_apps", return_value=None):
@@ -558,8 +563,7 @@ class TestLoadAppHooksErrorHandling:
 
     def test_one_app_getmembers_fails_other_apps_still_loaded(self):
         """When one app's hooks module raises during getmembers, skip that app only."""
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=["frappe", "erpnext"],
@@ -595,7 +599,7 @@ class TestFilterModuleMapsErrorHandling:
     """_filter_module_maps must not crash on unexpected frappe.local states."""
 
     def test_app_modules_is_none(self):
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service")
         frappe.local.app_modules = None
         app._filter_module_maps()
@@ -603,7 +607,7 @@ class TestFilterModuleMapsErrorHandling:
 
     def test_app_modules_with_non_iterable_modules(self):
         """If one app has modules=None instead of a list, skip it."""
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service")
         frappe.local.app_modules = {
             'frappe': ['core', 'desk'],
@@ -617,9 +621,11 @@ class TestFilterModuleMapsErrorHandling:
 class TestGetAttrErrorHandling:
     """microservice_get_attr must handle ImportError/ModuleNotFoundError."""
 
+    def setup_method(self):
+        _reset_microservice_guards()
+
     def test_get_attr_import_error_becomes_attribute_error(self):
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=["frappe", "erpnext"],
@@ -638,8 +644,7 @@ class TestGetAttrErrorHandling:
             frappe.get_attr("erpnext.stock.utils.func")
 
     def test_get_attr_module_not_found_becomes_attribute_error(self):
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp(
             "test-service",
             load_framework_hooks=["frappe"],
@@ -658,8 +663,7 @@ class TestGetAttrErrorHandling:
             frappe.get_attr("frappe.utils.now")
 
     def test_get_attr_rejects_non_string(self):
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service")
 
         frappe.get_attr = MagicMock()
@@ -673,7 +677,7 @@ class TestSetupFrappeContextInit:
     """setup_frappe_context must return 503 when init/connect fails."""
 
     def test_returns_503_when_init_fails(self):
-        _reset_isolation_guard()
+        _reset_microservice_guards()
         app = MicroserviceApp("test-service", central_site_url="http://central")
         app.flask_app.testing = True
 

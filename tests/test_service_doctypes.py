@@ -56,7 +56,15 @@ def _make_doctype_dir(tmp_path, name="phone_auth_session",
 
 
 class TestSyncScanAndRegister:
-    """Cycles 4-7: scan, exists check, import, module mapping."""
+    """Cycles 4-7: scan, exists check, import, module mapping.
+
+    Note: All tests here mock frappe.db.exists. In production, the real
+    db.exists() goes through the query builder, which calls
+    get_additional_filters_from_hooks() -> get_attr(hook)(). That can
+    re-enter our patched get_attr and cause RecursionError if hook code
+    triggers another DB query. The re-entrancy guard in isolation.py fixes
+    that; see test_e2e_simulation.test_get_attr_*reentrancy*.
+    """
 
     def test_scan_discovers_doctype(self, tmp_path):
         """Cycle 4: discovered doctypes are added to _service_doctype_names."""
@@ -205,8 +213,9 @@ class TestControllerResolution:
     """Cycles 9-11: _patch_controller_resolution."""
 
     def setup_method(self):
-        if hasattr(frappe, "_microservice_controller_patched"):
-            del frappe._microservice_controller_patched
+        for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+            if hasattr(frappe, flag):
+                delattr(frappe, flag)
 
     def test_fallback_to_base_document(self):
         """Cycle 9: service doctype falls back to base Document on ImportError."""
@@ -325,8 +334,8 @@ class TestSetupFrappeContextWiring:
             "filter_maps",
             "patch_controller",
             "frappe_connect",
-            "sync_doctypes",
             "patch_hooks",
+            "sync_doctypes",
         ]
         assert calls == expected_order
 
@@ -349,6 +358,35 @@ class TestSetupFrappeContextWiring:
             app.setup_frappe_context()
 
         assert calls.index("connect") < calls.index("sync")
+
+    def test_startup_ops_run_only_once_across_multiple_inits(self):
+        """sync_doctypes and patch_hooks run once globally, not per-thread."""
+        app = MicroserviceApp("test-service")
+
+        sync_calls = []
+        hooks_calls = []
+        app._patch_app_resolution = lambda: None
+        app._filter_module_maps = lambda: None
+        app._patch_controller_resolution = lambda: None
+        app._sync_service_doctypes = lambda: sync_calls.append(1)
+        app._patch_hooks_resolution = lambda: hooks_calls.append(1)
+        frappe.init = MagicMock()
+        frappe.connect = MagicMock()
+
+        with app.flask_app.test_request_context("/"):
+            frappe.local.site = None
+            app.setup_frappe_context()
+            assert len(sync_calls) == 1
+            assert len(hooks_calls) == 1
+
+            frappe.local.site = None
+            app.setup_frappe_context()
+            assert len(sync_calls) == 1, (
+                "_sync_service_doctypes should not run again on subsequent inits"
+            )
+            assert len(hooks_calls) == 1, (
+                "_patch_hooks_resolution should not run again on subsequent inits"
+            )
 
 
 class TestSyncIdempotencyAndMultiple:

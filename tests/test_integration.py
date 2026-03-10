@@ -20,7 +20,7 @@ class TestSignupServiceIntegration:
     
     @pytest.fixture
     def base_url(self):
-        return "http://localhost:8000"
+        return "http://localhost:8100"
     
     @pytest.mark.integration
     def test_tenant_signup_flow(self, base_url):
@@ -29,7 +29,7 @@ class TestSignupServiceIntegration:
         subdomain = f"test-{uuid.uuid4().hex[:8]}"
         
         signup_data = {
-            "tenant_name": "Test Company",
+            "tenant_name": f"Test Company {uuid.uuid4().hex[:8]}",
             "subdomain": subdomain,
             "admin_email": f"admin@{subdomain}.com",
             "admin_password": "SecurePass123!"
@@ -60,7 +60,7 @@ class TestSignupServiceIntegration:
         subdomain = f"duplicate-{uuid.uuid4().hex[:8]}"
         
         signup_data = {
-            "tenant_name": "Test Company",
+            "tenant_name": f"Test Company {uuid.uuid4().hex[:8]}",
             "subdomain": subdomain,
             "admin_email": f"admin@{subdomain}.com",
             "admin_password": "SecurePass123!"
@@ -79,7 +79,7 @@ class TestSignupServiceIntegration:
     def test_signup_weak_password(self, base_url):
         """Test password strength validation"""
         signup_data = {
-            "tenant_name": "Test Company",
+            "tenant_name": f"Test Company {uuid.uuid4().hex[:8]}",
             "subdomain": f"test-{uuid.uuid4().hex[:8]}",
             "admin_email": "admin@test.com",
             "admin_password": "weak"  # Too short
@@ -184,7 +184,7 @@ class TestCrossServiceIntegration:
         
         # Call signup service
         response = requests.get(
-            "http://localhost:8000/health",
+            "http://localhost:8100/health",
             headers=headers
         )
         
@@ -197,25 +197,25 @@ class TestCrossServiceIntegration:
         # Create tenant 1
         subdomain1 = f"tenant1-{uuid.uuid4().hex[:8]}"
         signup1 = {
-            "tenant_name": "Tenant 1",
+            "tenant_name": f"Tenant 1 {uuid.uuid4().hex[:8]}",
             "subdomain": subdomain1,
             "admin_email": f"admin@{subdomain1}.com",
             "admin_password": "SecurePass123!"
         }
         
-        response1 = requests.post("http://localhost:8000/signup/tenant", json=signup1)
+        response1 = requests.post("http://localhost:8100/signup/tenant", json=signup1)
         tenant1_id = response1.json()['data']['tenant_id'] if response1.status_code == 201 else None
         
         # Create tenant 2
         subdomain2 = f"tenant2-{uuid.uuid4().hex[:8]}"
         signup2 = {
-            "tenant_name": "Tenant 2",
+            "tenant_name": f"Tenant 2 {uuid.uuid4().hex[:8]}",
             "subdomain": subdomain2,
             "admin_email": f"admin@{subdomain2}.com",
             "admin_password": "SecurePass123!"
         }
         
-        response2 = requests.post("http://localhost:8000/signup/tenant", json=signup2)
+        response2 = requests.post("http://localhost:8100/signup/tenant", json=signup2)
         tenant2_id = response2.json()['data']['tenant_id'] if response2.status_code == 201 else None
         
         # Verify different tenant IDs
@@ -230,7 +230,7 @@ class TestHealthEndpoints:
     
     @pytest.mark.integration
     @pytest.mark.parametrize("service,port", [
-        ("signup", 8000),
+        ("signup", 8100),
         ("auth", 8001),
         ("order", 8002)
     ])
