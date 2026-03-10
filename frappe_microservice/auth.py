@@ -77,13 +77,35 @@ class AuthMixin:
 
     def _validate_session(self):
         """
-        Determine the current user from this request. If Authorization: Bearer
-        is present, validate via _validate_oauth_token. Otherwise look for sid
-        cookie and call Central Site get_logged_user; on success set frappe
-        user and sid and return (username, None). On any failure clear session
-        and return (None, 401 response). Used by secure_route before running the view.
+        Determine the current user from this request.
+
+        Auth priority:
+          1. X-Internal-Token header matching INTERNAL_SERVICE_TOKEN env var
+             → treats caller as Administrator (service-to-service, no user session).
+          2. Authorization: Bearer <token> → validated via Central Site OIDC.
+          3. sid cookie → validated via Central Site get_logged_user.
+
+        Returns (username, None) on success or (None, error_response) on failure.
         """
+        import os
+
         try:
+            # ── 1. Internal service token (service-to-service bypass) ────────────
+            internal_token = os.getenv('INTERNAL_SERVICE_TOKEN')
+            if internal_token:
+                req_token = request.headers.get('X-Internal-Token', '')
+                if req_token and req_token == internal_token:
+                    username = 'Administrator'
+                    self.logger.info(
+                        "Internal service token validated — treating caller as Administrator"
+                    )
+                    frappe.set_user(username)
+                    if hasattr(frappe, 'session'):
+                        frappe.session.user = username
+                        frappe.session.sid = 'internal'
+                    return username, None
+
+            # ── 2. OAuth2 Bearer token ────────────────────────────────────────────
             auth_header = request.headers.get('Authorization', '')
             if auth_header.startswith('Bearer '):
                 access_token = auth_header[7:]

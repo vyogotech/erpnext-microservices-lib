@@ -89,7 +89,9 @@ def create_site_config(
 
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+        # Always sync the encryption_key from central-site even when file already exists
+        return _sync_encryption_key(config, config_file)
 
     config = _build_config_from_env(
         db_host, db_port, db_name, db_user, db_password, redis_host, redis_port,
@@ -106,7 +108,50 @@ def create_site_config(
     except OSError:
         pass  # read-only filesystem; return in-memory config
 
+    # After creating the config, sync the encryption key from central-site.
+    config = _sync_encryption_key(config, config_file)
+
     return config
+
+
+def _sync_encryption_key(config, config_file):
+    """
+    Read /secrets/encryption_key.txt written by the central-site container-entrypoint.sh
+    and merge it into the in-memory config dict AND the on-disk site_config.json.
+    This ensures every microservice uses the same Fernet key as the central site so
+    that DB-stored passwords (SMTP, API keys) can be decrypted correctly.
+    """
+    encryption_key_file = '/secrets/encryption_key.txt'
+    if not os.path.exists(encryption_key_file):
+        return config
+
+    try:
+        with open(encryption_key_file, 'r') as f:
+            key = f.read().strip()
+        if not key:
+            return config
+
+        if config.get('encryption_key') == key:
+            return config  # already in sync
+
+        config['encryption_key'] = key
+
+        # Patch the on-disk file too so future runs don't need to re-sync
+        if os.path.exists(config_file):
+            import json as _json
+            with open(config_file, 'r') as f:
+                disk_cfg = _json.load(f)
+            disk_cfg['encryption_key'] = key
+            with open(config_file, 'w') as f:
+                _json.dump(disk_cfg, f, indent=2)
+
+    except Exception as e:
+        # Non-fatal: log and continue; the service will still start
+        import sys
+        print(f"[entrypoint] WARNING: Could not sync encryption_key: {e}", file=sys.stderr)
+
+    return config
+
 
 
 def _write_config_fallback(site_path, config_file, config):

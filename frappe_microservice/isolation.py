@@ -64,10 +64,18 @@ class IsolationMixin:
         self.logger.info(
             f"Patching app resolution: allowed apps = {sorted(allowed_apps)}")
 
+        def _service_app_is_importable(app_name):
+            """Return True only if the service app exists as an importable Python module."""
+            import importlib.util
+            return importlib.util.find_spec(app_name) is not None
+
         def _deduplicated_filter(apps):
             """
             Keep only allowed apps, deduplicate, and ensure 'frappe' is first
             in the list (Frappe expects this for module resolution).
+            Only adds service_app_name if it actually exists as a Python module
+            — services like file-metadata-service are pure Flask apps with no
+            Frappe module, so blindly appending would cause ModuleNotFoundError.
             """
             seen = set()
             filtered = []
@@ -76,7 +84,7 @@ class IsolationMixin:
                     seen.add(a)
                     filtered.append(a)
 
-            if service_app_name not in seen:
+            if service_app_name not in seen and _service_app_is_importable(service_app_name):
                 filtered.append(service_app_name)
             if 'frappe' not in seen:
                 filtered.append('frappe')
@@ -86,6 +94,7 @@ class IsolationMixin:
                 filtered.insert(0, 'frappe')
 
             return filtered
+
 
         def microservice_get_installed_apps(*, _ensure_on_bench=False):
             """
@@ -359,10 +368,10 @@ class IsolationMixin:
         """
         Scan doctypes_path for DocType JSONs.  For each JSON:
         - Register the doctype name in self._service_doctype_names.
+        - Register module -> app mapping in frappe.local BEFORE import_doc
+          so that Frappe's on_update hook can call get_module_app() successfully.
         - If the DocType does NOT exist in the DB, create it via import_doc.
         - If it already exists, skip DB changes (never delete/overwrite).
-        - Always register the module mapping in frappe.local so
-          get_module_app() resolves correctly for this service.
         """
         if not getattr(self, "doctypes_path", None):
             return
@@ -374,6 +383,35 @@ class IsolationMixin:
         if not os.path.isdir(self.doctypes_path):
             self.logger.warning(f"DocTypes directory not found: {self.doctypes_path}")
             return
+
+        service_app = self.name.replace("-", "_")
+
+        def _register_module(module_str):
+            """
+            Register a module name (in both raw and scrubbed form) -> service_app
+            in frappe.local.module_app and frappe.local.app_modules.
+
+            Frappe's get_module_app() does an exact dict lookup with the raw
+            module string (e.g. "Signup Service"), so we must register BOTH:
+              "Signup Service"  -> signup_service   (exact, for get_module_app)
+              "signup_service"  -> signup_service   (scrubbed, for internal use)
+            """
+            if not module_str:
+                return
+            if not hasattr(frappe.local, "module_app"):
+                frappe.local.module_app = {}
+            if not hasattr(frappe.local, "app_modules"):
+                frappe.local.app_modules = {}
+            if service_app not in frappe.local.app_modules:
+                frappe.local.app_modules[service_app] = []
+
+            scrubbed = module_str.lower().replace(" ", "_")
+            # Register both forms so all Frappe lookup paths hit
+            for key in (module_str, scrubbed):
+                if key not in frappe.local.module_app:
+                    frappe.local.module_app[key] = service_app
+                if key not in frappe.local.app_modules[service_app]:
+                    frappe.local.app_modules[service_app].append(key)
 
         imported_any = False
         doctypes_dir = Path(self.doctypes_path)
@@ -387,6 +425,21 @@ class IsolationMixin:
                     self._service_doctype_names.add(doc_name)
                     self.logger.debug(f"Found service DocType: {doc_name}")
 
+                # Register module mapping BEFORE import_doc so Frappe's
+                # on_update hook can call get_module_app() without failing.
+                module = doc.get("module")
+                _register_module(module)
+
+                # Also register any module already stored in the DB (may differ
+                # from the JSON, e.g. if the DocType was moved to "Saas Platform").
+                if doc_name and frappe.db.exists("DocType", doc_name):
+                    try:
+                        existing_module = frappe.db.get_value("DocType", doc_name, "module")
+                        _register_module(existing_module)
+                    except Exception:
+                        pass
+
+                if doc_name:
                     if not frappe.db.exists("DocType", doc_name):
                         self.logger.info(f"Creating DocType {doc_name} in DB...")
                         frappe.modules.import_file.import_doc(
@@ -400,39 +453,6 @@ class IsolationMixin:
                             f"DocType {doc_name} already exists in DB, skipping import"
                         )
 
-                service_app = self.name.replace("-", "_")
-                if not hasattr(frappe.local, "module_app"):
-                    frappe.local.module_app = {}
-                if not hasattr(frappe.local, "app_modules"):
-                    frappe.local.app_modules = {}
-
-                # Register module from JSON (our canonical module name)
-                module = doc.get("module")
-                if module:
-                    scrubbed_module = module.lower().replace(" ", "_")
-                    frappe.local.module_app[scrubbed_module] = service_app
-                    if service_app not in frappe.local.app_modules:
-                        frappe.local.app_modules[service_app] = []
-                    if scrubbed_module not in frappe.local.app_modules[service_app]:
-                        frappe.local.app_modules[service_app].append(scrubbed_module)
-
-                # When doctype already exists in DB, it may have a different module (e.g. Saas Platform).
-                # Register that module -> service_app so Frappe resolves it without "Module X not found".
-                if frappe.db.exists("DocType", doc_name):
-                    try:
-                        existing_module = frappe.db.get_value("DocType", doc_name, "module")
-                        if existing_module:
-                            existing_scrubbed = existing_module.lower().replace(" ", "_")
-                            frappe.local.module_app[existing_scrubbed] = service_app
-                            if existing_scrubbed not in (
-                                frappe.local.app_modules.get(service_app) or []
-                            ):
-                                if service_app not in frappe.local.app_modules:
-                                    frappe.local.app_modules[service_app] = []
-                                frappe.local.app_modules[service_app].append(existing_scrubbed)
-                    except Exception:
-                        pass
-
             except Exception as e:
                 self.logger.error(
                     f"Error reading/syncing DocType JSON at {json_path}: {e}",
@@ -441,6 +461,7 @@ class IsolationMixin:
 
         if imported_any:
             frappe.db.commit()
+
 
     def _patch_controller_resolution(self):
         """
