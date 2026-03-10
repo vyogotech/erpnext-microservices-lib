@@ -345,8 +345,9 @@ def test_microservice_app_isolate_apps_filters_hooks():
         }
 
     # Reset guard to allow testing isolation logic anew
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     with patch("frappe.get_all_apps", return_value=["frappe", "erpnext", "test_service"]):
         app._patch_app_resolution()
@@ -395,8 +396,9 @@ def test_microservice_get_installed_apps_filters_to_allowed():
     app = MicroserviceApp("test-service")
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     # apps.txt has frappe, erpnext, test_service but load_framework_hooks
     # defaults to ['frappe', 'erpnext'], so all three should be included
@@ -416,8 +418,9 @@ def test_patch_app_resolution_no_framework_hooks():
     assert app.load_framework_hooks == []
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     # apps.txt has frappe, otherapp, test_service
     with patch("frappe.get_all_apps",
@@ -484,8 +487,9 @@ def test_microservice_get_attr_isolation_enforcement():
     app = MicroserviceApp("test-service", load_framework_hooks=['frappe'])
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     with patch("frappe.get_all_apps", return_value=["frappe"]):
         app._patch_app_resolution()
@@ -586,8 +590,9 @@ def test_get_doc_hooks_filtering():
     app = MicroserviceApp("test-service", load_framework_hooks=['frappe'])
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     with patch("frappe.get_all_apps", return_value=["frappe"]):
         app._patch_app_resolution()
@@ -621,8 +626,9 @@ def test_microservice_get_installed_apps_exception():
     app = MicroserviceApp("test-service")
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     # When get_all_apps fails (filesystem issue), should fall back gracefully
     with patch("frappe.get_all_apps", side_effect=Exception("apps.txt missing")):

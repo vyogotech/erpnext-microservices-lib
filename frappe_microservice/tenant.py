@@ -18,6 +18,12 @@ import frappe
 
 from frappe_microservice.hooks import DocumentHooks
 
+try:
+    from opentelemetry import trace
+    _otel_tracer = trace.get_tracer(__name__)
+except ImportError:
+    _otel_tracer = None
+
 
 class NullContext:
     """
@@ -184,14 +190,8 @@ class TenantAwareDB:
         Usage:
             users = db.get_all('User', filters={'status': 'active'})
         """
-        try:
-            from opentelemetry import trace
-            tracer = trace.get_tracer(__name__)
-        except ImportError:
-            tracer = None
-
-        with (tracer.start_as_current_span(f"db.get_all.{doctype}") if tracer else NullContext()) as span:
-            if tracer and span:
+        with (_otel_tracer.start_as_current_span(f"db.get_all.{doctype}") if _otel_tracer else NullContext()) as span:
+            if _otel_tracer and span:
                 span.set_attribute("db.system", "mariadb")
                 span.set_attribute("db.operation", "select")
                 span.set_attribute("db.target", doctype)
@@ -215,14 +215,8 @@ class TenantAwareDB:
         Usage:
             user = db.get_doc('User', 'USER-001')
         """
-        try:
-            from opentelemetry import trace
-            tracer = trace.get_tracer(__name__)
-        except ImportError:
-            tracer = None
-
-        with (tracer.start_as_current_span(f"db.get_doc.{doctype}") if tracer else NullContext()) as span:
-            if tracer and span:
+        with (_otel_tracer.start_as_current_span(f"db.get_doc.{doctype}") if _otel_tracer else NullContext()) as span:
+            if _otel_tracer and span:
                 span.set_attribute("db.system", "mariadb")
                 span.set_attribute("db.operation", "select")
                 span.set_attribute("db.target", doctype)
@@ -391,9 +385,9 @@ class TenantAwareDB:
         """
         tenant_id = self.get_tenant_id()
 
-        self.logger.info(
+        self.logger.debug(
             f"TenantAwareDB.insert_doc() called for doctype: {doctype}")
-        self.logger.info(f"Retrieved tenant_id: {tenant_id}")
+        self.logger.debug(f"Retrieved tenant_id: {tenant_id}")
 
         if not tenant_id:
             error_msg = "No tenant_id in context. Cannot create document without tenant isolation."
@@ -411,7 +405,7 @@ class TenantAwareDB:
                 insert_params[key] = kwargs.pop(key)
 
         doc_fields.update(kwargs)
-        self.logger.info(
+        self.logger.debug(
             f"Document fields to be set: {list(doc_fields.keys())}")
 
         if 'tenant_id' in doc_fields and doc_fields['tenant_id'] != tenant_id:
@@ -425,7 +419,7 @@ class TenantAwareDB:
             **doc_fields
         }
 
-        self.logger.info(f"Creating document with tenant_id: {tenant_id}")
+        self.logger.debug(f"Creating document with tenant_id: {tenant_id}")
         doc = frappe.get_doc(doc_dict)
 
         # CRITICAL: Set tenant_id directly on doc object
@@ -434,38 +428,28 @@ class TenantAwareDB:
         # fields from metadata, so fields added via ALTER TABLE won't be saved
         # during insert() unless set directly on the doc object.
         doc.tenant_id = tenant_id
-        self.logger.info(
-            f"Set tenant_id directly on doc object: {doc.tenant_id}")
 
         if run_hooks:
             self.hooks.run_hooks(doc, 'before_validate')
             self.hooks.run_hooks(doc, 'before_insert')
 
-        try:
-            from opentelemetry import trace
-            tracer = trace.get_tracer(__name__)
-        except ImportError:
-            tracer = None
-
-        with (tracer.start_as_current_span(f"db.insert.{doctype}") if tracer else NullContext()) as span:
-            if tracer and span:
+        with (_otel_tracer.start_as_current_span(f"db.insert.{doctype}") if _otel_tracer else NullContext()) as span:
+            if _otel_tracer and span:
                 span.set_attribute("db.system", "mariadb")
                 span.set_attribute("db.operation", "insert")
                 span.set_attribute("db.target", doctype)
 
-            self.logger.info(
+            self.logger.debug(
                 f"Calling doc.insert() for {doctype} with params: {insert_params}")
             doc.insert(**insert_params)
-            self.logger.info(
+            self.logger.debug(
                 f"doc.insert() completed. Document name: {getattr(doc, 'name', 'N/A')}")
 
-            if tracer and span and hasattr(doc, 'name'):
+            if _otel_tracer and span and hasattr(doc, 'name'):
                 span.set_attribute("db.document.name", doc.name)
 
         if self.verify_tenant_on_insert and hasattr(doc, 'name') and doc.name:
             saved_tenant = frappe.db.get_value(doctype, doc.name, 'tenant_id')
-            self.logger.info(
-                f"Post-insert verification: saved tenant_id = {saved_tenant}")
 
             if saved_tenant != tenant_id:
                 error_msg = (
@@ -475,11 +459,8 @@ class TenantAwareDB:
                 self.logger.error(error_msg)
                 raise ValueError(error_msg)
 
-            self.logger.info(
-                f"Tenant isolation verified for {doctype}/{doc.name}")
-        elif not self.verify_tenant_on_insert:
             self.logger.debug(
-                "Skipped post-insert tenant verification (verify_tenant_on_insert=False)")
+                f"Tenant isolation verified for {doctype}/{doc.name}")
 
         if run_hooks:
             self.hooks.run_hooks(doc, 'after_insert')

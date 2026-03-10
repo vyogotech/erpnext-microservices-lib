@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0] - 2026-03-10
+
+### Fixed
+- **Microservice Initialization Order**: Swapped initialization steps in `app.py` to call `_patch_hooks_resolution()` before `_sync_service_doctypes()`. This prevents `ModuleNotFoundError` for apps that don't have a `hooks.py` file.
+- **Module Resolution (In-Memory)**: Updated `isolation.py` to register module-to-app mappings in-memory BEFORE DocType syncing, avoiding the need for `Module Def` records in the database for microservices.
+- **Transaction Safety**: Added explicit `frappe.db.rollback()` on DocType sync failure to prevent transaction leakage (`ImplicitCommitError`) in subsequent requests on the same thread.
+- **Thread Safety**: Verified `threading.Lock` usage in `setup_frappe_context` for safe concurrent cold starts.
+
 ## [1.1.0] - 2026-03-09
 
 ### Added

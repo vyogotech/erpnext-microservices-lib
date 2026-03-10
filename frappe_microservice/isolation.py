@@ -13,7 +13,21 @@ mixin ensures each microservice only loads apps from its own bounded context:
   non-allowed apps are filtered out. Must run AFTER frappe.connect().
 """
 
+import threading
+
 import frappe
+
+# Re-entrancy guard: when we're inside microservice_get_attr, nested get_attr
+# (e.g. from hook code or query builder) must use the original to avoid recursion.
+_get_attr_depth = threading.local()
+
+
+def _get_depth():
+    return getattr(_get_attr_depth, "value", 0)
+
+
+def _set_depth(value):
+    _get_attr_depth.value = value
 
 
 class IsolationMixin:
@@ -149,6 +163,18 @@ class IsolationMixin:
                     continue
                 for module in modules:
                     frappe.local.module_app[module] = app
+
+            # Ensure service local modules mapped in _sync_service_doctypes are populated
+            # for THIS thread.
+            if hasattr(self, '_service_modules'):
+                service_app = self.name.replace("-", "_")
+                for module in self._service_modules:
+                    frappe.local.module_app[module] = service_app
+                    if service_app not in getattr(frappe.local, 'app_modules', {}):
+                        frappe.local.app_modules[service_app] = []
+                    if module not in frappe.local.app_modules[service_app]:
+                        frappe.local.app_modules[service_app].append(module)
+
         except Exception as e:
             self.logger.warning(
                 "Error filtering module maps: %s. Resetting to empty.",
@@ -265,6 +291,12 @@ class IsolationMixin:
                 "Patched _load_app_hooks to skip apps without a hooks module"
             )
 
+        if getattr(frappe, "_microservice_hooks_resolution_patched", False):
+            self.logger.debug("Hooks resolution already patched, skipping")
+            return
+            
+        frappe._microservice_hooks_resolution_patched = True
+
         original_get_doc_hooks = frappe.get_doc_hooks
 
         def microservice_get_doc_hooks():
@@ -322,12 +354,16 @@ class IsolationMixin:
             app part is not in allowed_apps, raise AttributeError so the hook
             is skipped. Also catch AppNotInstalledError/ImportError and convert
             to AttributeError.
+            Re-entrancy: when already inside this wrapper (e.g. hook code ran
+            a DB query which called get_additional_filters_from_hooks again),
+            use original_get_attr only to avoid RecursionError.
             """
+            if _get_depth() > 0:
+                return original_get_attr(method_string)
             if not isinstance(method_string, str):
                 raise AttributeError(
                     f"method_string must be a string, got {type(method_string).__name__}"
                 )
-
             if '.' in method_string:
                 app_name = method_string.split('.')[0]
                 if app_name not in allowed_apps:
@@ -336,20 +372,26 @@ class IsolationMixin:
                         f"app '{app_name}' not in allowed apps")
                     raise AttributeError(
                         f"Hook from non-installed app '{app_name}' skipped")
-
             try:
+                _set_depth(_get_depth() + 1)
                 return original_get_attr(method_string)
-            except (
-                getattr(frappe, 'AppNotInstalledError', type(None)),
-                ImportError,
-                ModuleNotFoundError,
-            ) as e:
+            except Exception as e:
+                # Catch AppNotInstalledError if frappe has it, plus ImportError/ModuleNotFoundError
+                allowed_exceptions = (ImportError, ModuleNotFoundError)
+                if hasattr(frappe, 'AppNotInstalledError'):
+                    allowed_exceptions += (frappe.AppNotInstalledError,)
+                
+                if not isinstance(e, allowed_exceptions):
+                    raise
+                    
                 app_name = method_string.split('.')[0] if '.' in method_string else 'unknown'
                 self.logger.debug(
                     f"Skipping hook '{method_string}' - "
                     f"app '{app_name}' not installed: {e}")
                 raise AttributeError(
                     f"Hook from non-installed app '{app_name}' skipped") from e
+            finally:
+                _set_depth(_get_depth() - 1)
 
         frappe.get_attr = microservice_get_attr
         self.logger.info(
@@ -387,7 +429,28 @@ class IsolationMixin:
                     self._service_doctype_names.add(doc_name)
                     self.logger.debug(f"Found service DocType: {doc_name}")
 
-                    if not frappe.db.exists("DocType", doc_name):
+                    service_app = self.name.replace("-", "_")
+                    if not hasattr(self, '_service_modules'):
+                        self._service_modules = set()
+
+                    if not hasattr(frappe.local, "module_app"):
+                        frappe.local.module_app = {}
+                    if not hasattr(frappe.local, "app_modules"):
+                        frappe.local.app_modules = {}
+
+                    module = doc.get("module")
+                    if module:
+                        scrubbed_module = module.lower().replace(" ", "_")
+                        self._service_modules.add(scrubbed_module)
+                        frappe.local.module_app[scrubbed_module] = service_app
+                        if service_app not in frappe.local.app_modules:
+                            frappe.local.app_modules[service_app] = []
+                        if scrubbed_module not in frappe.local.app_modules[service_app]:
+                            frappe.local.app_modules[service_app].append(scrubbed_module)
+
+                    exists_in_db = frappe.db.exists("DocType", doc_name)
+
+                    if not exists_in_db:
                         self.logger.info(f"Creating DocType {doc_name} in DB...")
                         frappe.modules.import_file.import_doc(
                             doc,
@@ -400,44 +463,31 @@ class IsolationMixin:
                             f"DocType {doc_name} already exists in DB, skipping import"
                         )
 
-                service_app = self.name.replace("-", "_")
-                if not hasattr(frappe.local, "module_app"):
-                    frappe.local.module_app = {}
-                if not hasattr(frappe.local, "app_modules"):
-                    frappe.local.app_modules = {}
-
-                # Register module from JSON (our canonical module name)
-                module = doc.get("module")
-                if module:
-                    scrubbed_module = module.lower().replace(" ", "_")
-                    frappe.local.module_app[scrubbed_module] = service_app
-                    if service_app not in frappe.local.app_modules:
-                        frappe.local.app_modules[service_app] = []
-                    if scrubbed_module not in frappe.local.app_modules[service_app]:
-                        frappe.local.app_modules[service_app].append(scrubbed_module)
-
-                # When doctype already exists in DB, it may have a different module (e.g. Saas Platform).
-                # Register that module -> service_app so Frappe resolves it without "Module X not found".
-                if frappe.db.exists("DocType", doc_name):
-                    try:
-                        existing_module = frappe.db.get_value("DocType", doc_name, "module")
-                        if existing_module:
-                            existing_scrubbed = existing_module.lower().replace(" ", "_")
-                            frappe.local.module_app[existing_scrubbed] = service_app
-                            if existing_scrubbed not in (
-                                frappe.local.app_modules.get(service_app) or []
-                            ):
-                                if service_app not in frappe.local.app_modules:
-                                    frappe.local.app_modules[service_app] = []
-                                frappe.local.app_modules[service_app].append(existing_scrubbed)
-                    except Exception:
-                        pass
+                        # Also ensure we register mapping for existing doctypes if not already done
+                        try:
+                            existing_module = frappe.db.get_value("DocType", doc_name, "module")
+                            if existing_module:
+                                existing_scrubbed = existing_module.lower().replace(" ", "_")
+                                self._service_modules.add(existing_scrubbed)
+                                frappe.local.module_app[existing_scrubbed] = service_app
+                                if existing_scrubbed not in (
+                                    frappe.local.app_modules.get(service_app) or []
+                                ):
+                                    if service_app not in frappe.local.app_modules:
+                                        frappe.local.app_modules[service_app] = []
+                                    frappe.local.app_modules[service_app].append(existing_scrubbed)
+                        except Exception:
+                            pass
 
             except Exception as e:
                 self.logger.error(
                     f"Error reading/syncing DocType JSON at {json_path}: {e}",
                     exc_info=True,
                 )
+                try:
+                    frappe.db.rollback()
+                except Exception:
+                    pass
 
         if imported_any:
             frappe.db.commit()
@@ -451,6 +501,8 @@ class IsolationMixin:
         """
         if getattr(frappe, "_microservice_controller_patched", False):
             return
+
+        frappe._microservice_controller_patched = True
 
         original_import_controller = frappe.model.base_document.import_controller
         service_doctype_names = self._service_doctype_names
@@ -470,4 +522,3 @@ class IsolationMixin:
                 raise
 
         frappe.model.base_document.import_controller = microservice_import_controller
-        frappe._microservice_controller_patched = True
