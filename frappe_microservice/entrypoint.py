@@ -62,6 +62,11 @@ def _build_config_from_env(
     }
     if resolved_redis_namespace:
         config['redis_namespace'] = resolved_redis_namespace
+        
+    encryption_key = os.getenv('ENCRYPTION_KEY')
+    if encryption_key:
+        config['encryption_key'] = encryption_key
+        
     return config
 
 
