@@ -29,6 +29,8 @@ RUN pip install --no-cache-dir git+https://github.com/frappe/frappe.git@${FRAPPE
     find /opt/venv/lib/python3.14/site-packages/erpnext/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
     rm -rf /opt/venv/lib/python3.14/site-packages/frappe/public/build && \
     rm -rf /opt/venv/lib/python3.14/site-packages/erpnext/public/build
+# Patch Frappe: bundled_asset() must handle get_assets_json() returning None (e.g. headless/microservice)
+RUN sed -i 's/bundled_assets = get_assets_json()/bundled_assets = get_assets_json() or {}/' /opt/venv/lib/python3.14/site-packages/frappe/utils/jinja_globals.py
 # Install the microservice library
 COPY . /tmp/frappe-microservice-lib
 RUN pip install --no-cache-dir /tmp/frappe-microservice-lib && \
