@@ -115,6 +115,13 @@ def create_site_config(
     site_path = os.path.join(frappe_sites_path, frappe_site)
     config_file = os.path.join(site_path, 'site_config.json')
 
+    # Ensure site and logs dirs exist so Frappe's get_logger() / database.log do not raise ENOENT
+    try:
+        os.makedirs(site_path, exist_ok=True)
+        os.makedirs(os.path.join(site_path, 'logs'), exist_ok=True)
+    except OSError:
+        pass
+
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
             config = json.load(f)
