@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir git+https://github.com/frappe/frappe.git@${FRAPPE
 COPY . /tmp/frappe-microservice-lib
 RUN pip install --no-cache-dir /tmp/frappe-microservice-lib && \
     pip install --no-cache-dir \
+    gunicorn>=22.0 \
     pyjwt==2.8.0 \
     requests==2.32.0 \
     redis==7.2.1 \
@@ -79,7 +80,7 @@ COPY --from=builder /app/dev.localhost /app/dev.localhost
 COPY --from=builder /logs /logs
 
 # Fix permissions to allow non-root users (e.g., in OpenShift/Kubernetes) to write logs and site configs
-RUN chmod -R 777 /app /logs
+RUN mkdir -p /app/logs && chmod -R 777 /app /logs
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \

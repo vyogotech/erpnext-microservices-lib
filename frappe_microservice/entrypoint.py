@@ -11,10 +11,9 @@ Minimal entrypoint helper for Frappe microservices.
   when the database is not up (e.g. in Kubernetes).
 - _build_config_from_env(...): Builds the dict of db_*, redis_* keys from args or env.
 - _write_config_fallback(...): Writes config to disk when Frappe is not importable.
-- run_app(app): Calls create_site_config(), then runs the Flask app.
-- main(): CLI entrypoint when run as __main__. Reads SERVICE_PATH (default /app/service)
-  and SERVICE_APP (default server:app), imports the app, and calls run_app(app).
-  Use in containers: python -m frappe_microservice.entrypoint (no per-service entrypoint needed).
+- main(): CLI entrypoint when run as __main__. Calls create_site_config(), then execs
+  Gunicorn with SERVICE_APP (e.g. server:app). SERVICE_PATH is added to PYTHONPATH.
+  Use in containers: ENTRYPOINT ["python", "-m", "frappe_microservice.entrypoint"].
 """
 
 import json
@@ -169,57 +168,44 @@ def _write_config_fallback(site_path, config_file, config):
         pass  # read-only filesystem
 
 
-def run_app(app):
-    """
-    Entry point for standalone microservice processes. Ensures site_config.json
-    exists via create_site_config(), then starts the Flask app with host/port
-    from HOST and PORT env vars. On any exception, logs to stderr and exits
-    with code 1. Use when the process is started directly (e.g. python server.py)
-    rather than via MicroserviceApp.run().
-    """
-    try:
-        create_site_config()
-
-        port = int(os.getenv('PORT', '8001'))
-        host = os.getenv('HOST', '0.0.0.0')
-
-        print(f"Starting Frappe microservice on {host}:{port}...")
-        app.run()
-    except Exception as e:
-        print(f"Error starting service: {e}", file=sys.stderr)
-        sys.exit(1)
-
-
 def main():
     """
-    Library entrypoint: discover the service app from env and run it.
+    Library entrypoint: ensure site_config exists, then exec Gunicorn (like Frappe).
+    SERVICE_PATH is added to PYTHONPATH so Gunicorn can import SERVICE_APP.
 
     Env:
         SERVICE_PATH: Directory containing the service code (default: /app/service).
-                     Prepended to sys.path so the service module can be imported.
-        SERVICE_APP: Module and attribute for the app instance (default: server:app).
-                     Example: "server:app" -> from server import app.
-
-    Use in containers: CMD ["python", "-m", "frappe_microservice.entrypoint"]
-    No per-service entrypoint.py needed; set SERVICE_PATH (and optionally SERVICE_APP).
+        SERVICE_APP: WSGI app spec for Gunicorn (default: server:app).
+        PORT, GUNICORN_WORKERS, GUNICORN_TIMEOUT: optional overrides.
     """
-    import importlib
+    create_site_config()
 
     service_path = os.getenv('SERVICE_PATH', '/app/service')
     service_app = os.getenv('SERVICE_APP', 'server:app')
+    port = os.getenv('PORT', '8000')
+    workers = os.getenv('GUNICORN_WORKERS', '4')
+    timeout = os.getenv('GUNICORN_TIMEOUT', '120')
 
-    if service_path not in sys.path:
-        sys.path.insert(0, service_path)
+    # So Gunicorn can import the service module (e.g. server)
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.pathsep.join([service_path, env.get('PYTHONPATH', '')])
+
+    gunicorn = '/opt/venv/bin/gunicorn'
+    args = [
+        gunicorn,
+        f'--bind=0.0.0.0:{port}',
+        f'--workers={workers}',
+        '--worker-class=sync',
+        '--worker-tmp-dir=/dev/shm',
+        f'--timeout={timeout}',
+        service_app,
+    ]
 
     try:
-        module_name, app_attr = service_app.split(':', 1)
-        module = importlib.import_module(module_name)
-        app = getattr(module, app_attr)
-    except (ValueError, AttributeError, ModuleNotFoundError) as e:
-        print(f"Entrypoint failed: could not load app from {service_app} (SERVICE_PATH={service_path}): {e}", file=sys.stderr)
+        os.execvpe(gunicorn, args, env)
+    except Exception as e:
+        print(f"Error starting Gunicorn: {e}", file=sys.stderr)
         sys.exit(1)
-
-    run_app(app)
 
 
 if __name__ == '__main__':

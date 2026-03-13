@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.3.0] - 2026-03-13
+
+### Changed
+- **Gunicorn entrypoint**: `frappe_microservice.entrypoint.main()` now execs Gunicorn directly (Frappe-style `os.execvpe`) with `--worker-class=sync --worker-tmp-dir=/dev/shm`. No more Flask dev server in production containers. Configurable via `PORT` (default `8000`), `GUNICORN_WORKERS` (default `4`), `GUNICORN_TIMEOUT` (default `120`).
+- **`MicroserviceApp` is WSGI-callable**: Added `__call__(environ, start_response)` so Gunicorn can use `SERVICE_APP` (e.g. `server:app`) pointing at the `MicroserviceApp` instance directly.
+- **`gunicorn>=22.0` added** to `setup.py` install_requires and `Containerfile` pip step.
+
+### Fixed
+- **DB connection leak eliminated**: Frappe context and DB connection are now managed per-worker, not per-request.
+  - `_initialize_frappe()` (called once at `__init__` time) runs `frappe.init()` and all patches; captures `frappe.local` dict into `self._frappe_local_base` without opening a DB connection.
+  - `_restore_frappe_local()` (called in `before_request`) restores the ContextVar dict and lazily opens the DB on the first request per worker (`frappe.local.db` stored in `self._db_obj`). Subsequent requests inject `frappe.local.db = self._db_obj` without reconnecting.
+  - `self._db_obj = frappe.local.db` (the real DB instance) instead of `frappe.db` (a `LocalProxy`) prevents `RecursionError` on ping.
+  - `ping()` called without keyword args to avoid `TypeError: ping() takes no keyword arguments`.
+- **`/health` and `/socket.io/` skip DB entirely**: Both `before_request` and `after_request` return early for these paths — no Frappe context, no DB, no reconnects.
+- **`after_request` rollback on commit failure**: `frappe.db.commit()` wrapped in `try/except`; calls `frappe.db.rollback()` on failure so the connection is left clean for the next request.
+- **`/app/logs` directory created in Containerfile**: Prevents `FileNotFoundError` for `database.log` when Gunicorn workers start under a non-root user.
+
+### Added
+- **Unit tests** (`tests/test_db_connection_reuse.py`): 12 tests covering skip-paths, connect-once, DB object identity, reconnect-on-ping-failure, WSGI callable, Gunicorn entrypoint flags, and after_request rollback.
+- **`conftest.py`**: Extended to stub `frappe.utils.local._contextvar` (new import) so the full test suite runs on hosts without real Frappe installed.
+
 ## [1.2.0] - 2026-03-10
 
 ### Fixed
