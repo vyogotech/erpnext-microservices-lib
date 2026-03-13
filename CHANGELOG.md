@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1] - 2026-03-13
+
+### Fixed
+- **DocType sync no longer destabilises the central site** (`isolation.py`).
+  Two-part fix for the `AttributeError: module 'frappe.integrations.oauth2' has no attribute 'set_cors_for_privileged_requests'` (and similar) errors on the central site after a service restart:
+  - **`_import_doc_without_cache_flush`**: Temporarily replaces `frappe.cache_manager.reset_metadata_version` with a no-op during `import_doc`. DocType save previously called `frappe.clear_cache(doctype=…)` → `reset_metadata_version()`, which bumped a hash in **shared Redis**. The central site detected the version change on its next request and reloaded all hooks — tripping over any hook pointing to a removed/renamed function in the installed Frappe version.
+  - **`_ensure_module_def`**: Inserts a `Module Def` record (if absent) for the service module before DocType import, attributing the DocType to the service app instead of defaulting to `"frappe"`. This prevents the central site from trying to load controller classes that only exist inside the service container.
+
 ## [1.3.0] - 2026-03-13
 
 ### Changed

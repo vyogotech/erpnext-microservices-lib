@@ -481,14 +481,16 @@ class IsolationMixin:
                     except Exception:
                         pass
 
+                # Ensure Module Def exists so Frappe knows this module belongs
+                # to the service app, not to 'frappe'. This prevents the central
+                # site from misrouting the DocType's controller resolution.
+                if module:
+                    self._ensure_module_def(module, service_app)
+
                 if doc_name:
                     if not frappe.db.exists("DocType", doc_name):
                         self.logger.info(f"Creating DocType {doc_name} in DB...")
-                        frappe.modules.import_file.import_doc(
-                            doc,
-                            ignore_version=True,
-                            reset_permissions=False,
-                        )
+                        self._import_doc_without_cache_flush(doc)
                         imported_any = True
                     else:
                         self.logger.debug(
@@ -509,6 +511,66 @@ class IsolationMixin:
         if imported_any:
             frappe.db.commit()
 
+
+    def _import_doc_without_cache_flush(self, doc: dict):
+        """
+        Run frappe.modules.import_file.import_doc while suppressing the
+        reset_metadata_version() call that DocType.after_save triggers.
+
+        Background: when a DocType is saved, frappe.clear_cache(doctype=name)
+        calls reset_metadata_version(), which bumps a hash in shared Redis.  The
+        central site detects the version bump on its next request and reloads all
+        hooks from scratch.  If the central site's Frappe has a hook pointing to a
+        function that was removed/renamed (e.g. frappe.integrations.oauth2.
+        set_cors_for_privileged_requests), that reload raises an AttributeError.
+
+        We suppress only reset_metadata_version — the DocType-specific cache keys
+        are still cleared so the service itself stays consistent.
+        """
+        import frappe.cache_manager as _cm
+
+        original = _cm.reset_metadata_version
+        _cm.reset_metadata_version = lambda: None
+        try:
+            frappe.modules.import_file.import_doc(
+                doc,
+                ignore_version=True,
+                reset_permissions=False,
+            )
+        finally:
+            _cm.reset_metadata_version = original
+
+    def _ensure_module_def(self, module_name: str, app_name: str):
+        """
+        Insert a Module Def record for `module_name` owned by `app_name` if one
+        doesn't already exist. This tells Frappe (and the shared central site) that
+        this module belongs to the service app, not to 'frappe' — preventing the
+        central site from trying to load controller classes it doesn't have.
+
+        Uses ignore_permissions + ignore_mandatory so it works without an Admin
+        session, and catches all exceptions silently so a failure here never blocks
+        the service from starting.
+        """
+        try:
+            if not frappe.db.table_exists("Module Def"):
+                return
+            if frappe.db.exists("Module Def", module_name):
+                return
+            m = frappe.get_doc({
+                "doctype": "Module Def",
+                "module_name": module_name,
+                "app_name": app_name,
+            })
+            m.flags.ignore_permissions = True
+            m.flags.ignore_mandatory = True
+            m.flags.ignore_links = True
+            m.insert()
+            frappe.db.commit()
+            self.logger.info(
+                f"Created Module Def '{module_name}' → app '{app_name}'"
+            )
+        except Exception as e:
+            self.logger.debug(f"Module Def '{module_name}' skipped: {e}")
 
     def _patch_controller_resolution(self):
         """
