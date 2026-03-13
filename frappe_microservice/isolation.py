@@ -731,20 +731,26 @@ def presync_service_doctypes(
     Safe across multiple pods: all operations are idempotent (check-then-create
     with caught duplicates). Two pods racing will both succeed without conflict.
 
-    Falls back to env vars: DOCTYPES_PATH, SERVICE_NAME, FRAPPE_SITE,
-    FRAPPE_SITES_PATH. Fixtures auto-discovered at <SERVICE_PATH>/fixtures/.
+    Falls back to env vars: SERVICE_PATH, SERVICE_NAME, DOCTYPES_PATH, FRAPPE_SITE,
+    FRAPPE_SITES_PATH. If DOCTYPES_PATH is not set, it defaults to
+    {SERVICE_PATH}/{service_app}/{service_app}/doctype (e.g. .../signup_service/signup_service/doctype).
+    Fixtures auto-discovered at <SERVICE_PATH>/fixtures/.
     """
+    service_path = os.getenv("SERVICE_PATH", "/app/service")
+    service_name = service_name or os.getenv("SERVICE_NAME", "")
+    service_app = service_name.replace("-", "_") if service_name else ""
+
+    # Default DOCTYPES_PATH to conventional location: {SERVICE_PATH}/{service_app}/{service_app}/doctype
+    if not doctypes_path and service_app:
+        doctypes_path = os.path.join(service_path, service_app, service_app, "doctype")
     doctypes_path = doctypes_path or os.getenv("DOCTYPES_PATH")
+
     if not fixtures_path:
-        service_path = os.getenv("SERVICE_PATH", "/app/service")
         fixtures_path = os.path.join(service_path, "fixtures")
     has_doctypes = doctypes_path and os.path.isdir(doctypes_path)
     has_fixtures = fixtures_path and os.path.isdir(fixtures_path)
     if not has_doctypes and not has_fixtures:
         return
-
-    service_name = service_name or os.getenv("SERVICE_NAME", "")
-    service_app = service_name.replace("-", "_")
     site = site or os.getenv("FRAPPE_SITE", "site1.local")
     sites_path = sites_path or os.getenv("FRAPPE_SITES_PATH", "/app/sites")
 
