@@ -12,13 +12,16 @@ Developers typically use: app = create_microservice("my-service") then @app.secu
 
 from flask import Flask, request, jsonify, g, has_app_context
 from functools import wraps
-import frappe
-from frappe.utils.local import _contextvar
+import copy
 import os
 import logging
 import traceback
 import uuid
-from frappe_microservice.entrypoint import create_site_config
+
+import frappe
+from frappe.utils.local import _contextvar
+
+from frappe_microservice.site_config import create_site_config
 from frappe_microservice.tenant import TenantAwareDB, get_user_tenant_id
 from frappe_microservice.isolation import IsolationMixin
 from frappe_microservice.auth import AuthMixin
@@ -73,7 +76,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                  load_framework_hooks=None,
                  log_level=None,
                  otel_exporter_url=None,
-                 doctypes_path=None):
+                 doctypes_path=None,
+                 fixtures_path=None):
         """
         Initialize the microservice: create Flask app, set up logging and optional
         OpenTelemetry, resolve load_framework_hooks (frappe + service app + config),
@@ -168,6 +172,7 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
             self.logger.warning("Flasgger not found. Swagger documentation disabled.")
 
         self.doctypes_path = doctypes_path
+        self.fixtures_path = fixtures_path or self._resolve_fixtures_path()
         self._service_doctype_names = set()
         self._db_connected = False
         self._frappe_local_base = None
@@ -183,6 +188,15 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         if not self._central_client:
             self._central_client = CentralSiteClient(url=self.central_site_url)
         return self._central_client
+
+    @staticmethod
+    def _resolve_fixtures_path():
+        """Derive fixtures_path from SERVICE_PATH convention: <SERVICE_PATH>/fixtures."""
+        service_path = os.getenv("SERVICE_PATH")
+        if not service_path:
+            return None
+        candidate = os.path.join(service_path, "fixtures")
+        return candidate if os.path.isdir(candidate) else None
 
     def _setup_logging(self):
         """
@@ -283,28 +297,74 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         if self.db_host:
             frappe.local.conf.db_host = self.db_host
 
-        frappe.local.session = frappe._dict(user='Guest', sid=None)
+        frappe.local.session = frappe._dict(user='Guest', sid=None, data=frappe._dict())
+
+        self._patch_version_session_data()
 
         self._frappe_local_base = _contextvar.get()
+        self._main_pid = os.getpid()
         self.logger.info("Frappe initialized at startup (DB deferred to first request)")
+
+    def _patch_version_session_data(self):
+        """Patch Frappe Version doctype so session.data.get() never crashes when data is None."""
+        try:
+            from frappe.core.doctype.version import version as version_module
+            _set_impersonator = version_module.Version.set_impersonator
+
+            @staticmethod
+            def _safe_set_impersonator(data):
+                if not frappe.session:
+                    return
+                session_data = getattr(frappe.session, "data", None)
+                if session_data is None:
+                    frappe.session.data = frappe._dict()
+                    session_data = frappe.session.data
+                if impersonator := session_data.get("impersonated_by"):
+                    data["impersonated_by"] = impersonator
+                if audit_user := session_data.get("audit_user"):
+                    data["audit_user"] = audit_user
+
+            version_module.Version.set_impersonator = _safe_set_impersonator
+        except Exception as e:
+            self.logger.warning("Could not patch Version.set_impersonator: %s", e)
 
     def _restore_frappe_local(self):
         """
         Restore frappe.local from the startup-captured dict and reset
         per-request fields. On the first call per worker process, opens the
-        DB connection and syncs service doctypes.
+        DB connection and registers service doctypes in memory.
+
+        DB sync of doctypes is handled by the entrypoint (presync) before
+        Gunicorn starts. In dev mode (no entrypoint), falls back to
+        _sync_service_doctypes_to_db() on first request.
 
         The DB object is stored on `self` rather than relying on the
         ContextVar dict mutation, because Werkzeug may run each request in
         a copied context that doesn't see in-place dict changes from prior
         requests.
+
+        When Gunicorn runs with --preload, the app is loaded once in the
+        master; workers inherit the same _frappe_local_base. Each worker
+        must use its own copy so DB and request state are not shared.
         """
+        if os.getpid() != self._main_pid:
+            if not getattr(self, "_worker_local_copied", False):
+                self._frappe_local_base = copy.deepcopy(self._frappe_local_base)
+                self._worker_local_copied = True
         _contextvar.set(self._frappe_local_base)
+
+        # Frappe's Version doctype expects frappe.session.data to be a dict (e.g. .get("impersonated_by"))
+        if getattr(frappe.local, "session", None) is not None:
+            if not getattr(frappe.local.session, "data", None):
+                frappe.local.session.data = frappe._dict()
 
         if not self._db_connected:
             frappe.connect(set_admin_as_user=False)
             self._db_obj = frappe.local.db
-            self._sync_service_doctypes()
+            self._register_service_doctypes_from_json()
+            if not os.getenv("_DOCTYPES_PRESYNCED"):
+                self._sync_service_doctypes_to_db()
+                self._sync_fixtures_to_db()
             self._db_connected = True
             self.logger.info("DB connection established on first request")
         else:
@@ -320,7 +380,7 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         frappe.local.form_dict = frappe._dict()
         frappe.local.request_ip = request.remote_addr
         frappe.local.flags = frappe._dict(currently_saving=[])
-        frappe.local.session = frappe._dict(user='Guest', sid=None)
+        frappe.local.session = frappe._dict(user='Guest', sid=None, data=frappe._dict())
         frappe.local.error_log = []
         frappe.local.message_log = []
 

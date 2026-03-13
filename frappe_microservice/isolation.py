@@ -11,9 +11,18 @@ mixin ensures each microservice only loads apps from its own bounded context:
   allowed apps only (cleans any Redis contamination). Must run AFTER frappe.init().
 - _patch_hooks_resolution(): Replace get_doc_hooks and get_attr so hooks from
   non-allowed apps are filtered out. Must run AFTER frappe.connect().
+
+Public standalone functions:
+- presync_service_doctypes(): One-shot DB sync called from entrypoint before
+  Gunicorn starts. Safe to call from multiple pods (idempotent).
+- Also syncs fixture data (e.g. SMS Settings, Email Template) from FIXTURES_PATH.
 """
 
+import json
+import logging
+import os
 import threading
+from pathlib import Path
 
 import frappe
 
@@ -406,18 +415,32 @@ class IsolationMixin:
         self.logger.info(
             f"Hooks resolution patched: allowed apps = {sorted(allowed_apps)}")
 
-    def _sync_service_doctypes(self):
+    def _register_module_for_service(self, module_str, service_app):
+        """Register a module -> service_app in frappe.local (in-memory only)."""
+        if not module_str:
+            return
+        if not hasattr(frappe.local, "module_app"):
+            frappe.local.module_app = {}
+        if not hasattr(frappe.local, "app_modules"):
+            frappe.local.app_modules = {}
+        if service_app not in frappe.local.app_modules:
+            frappe.local.app_modules[service_app] = []
+
+        scrubbed = module_str.lower().replace(" ", "_")
+        for key in (module_str, scrubbed):
+            if key not in frappe.local.module_app:
+                frappe.local.module_app[key] = service_app
+            if key not in frappe.local.app_modules[service_app]:
+                frappe.local.app_modules[service_app].append(key)
+
+    def _register_service_doctypes_from_json(self):
         """
-        Scan doctypes_path for DocType JSONs.  For each JSON:
-        - Register the doctype name in self._service_doctype_names.
-        - Register module -> app mapping in frappe.local BEFORE import_doc
-          so that Frappe's on_update hook can call get_module_app() successfully.
-        - If the DocType does NOT exist in the DB, create it via import_doc.
-        - If it already exists, skip DB changes (never delete/overwrite).
+        Scan doctypes_path for DocType JSONs and register doctype names and
+        module mappings in memory only (no DB). Every worker must run this
+        so frappe.local.module_app and _service_doctype_names are populated.
         """
         if not getattr(self, "doctypes_path", None):
             return
-
         import os
         from pathlib import Path
         import json
@@ -427,80 +450,66 @@ class IsolationMixin:
             return
 
         service_app = self.name.replace("-", "_")
-
-        def _register_module(module_str):
-            """
-            Register a module name (in both raw and scrubbed form) -> service_app
-            in frappe.local.module_app and frappe.local.app_modules.
-
-            Frappe's get_module_app() does an exact dict lookup with the raw
-            module string (e.g. "Signup Service"), so we must register BOTH:
-              "Signup Service"  -> signup_service   (exact, for get_module_app)
-              "signup_service"  -> signup_service   (scrubbed, for internal use)
-            """
-            if not module_str:
-                return
-            if not hasattr(frappe.local, "module_app"):
-                frappe.local.module_app = {}
-            if not hasattr(frappe.local, "app_modules"):
-                frappe.local.app_modules = {}
-            if service_app not in frappe.local.app_modules:
-                frappe.local.app_modules[service_app] = []
-
-            scrubbed = module_str.lower().replace(" ", "_")
-            # Register both forms so all Frappe lookup paths hit
-            for key in (module_str, scrubbed):
-                if key not in frappe.local.module_app:
-                    frappe.local.module_app[key] = service_app
-                if key not in frappe.local.app_modules[service_app]:
-                    frappe.local.app_modules[service_app].append(key)
-
-        imported_any = False
         doctypes_dir = Path(self.doctypes_path)
         for json_path in doctypes_dir.glob("*/*.json"):
             try:
                 with open(json_path, 'r') as f:
                     doc = json.load(f)
-
                 doc_name = doc.get("name")
                 if doc_name:
                     self._service_doctype_names.add(doc_name)
                     self.logger.debug(f"Found service DocType: {doc_name}")
-
-                # Register module mapping BEFORE import_doc so Frappe's
-                # on_update hook can call get_module_app() without failing.
                 module = doc.get("module")
-                _register_module(module)
+                self._register_module_for_service(module, service_app)
+            except Exception as e:
+                self.logger.error(
+                    f"Error reading DocType JSON at {json_path}: {e}",
+                    exc_info=True,
+                )
 
-                # Also register any module already stored in the DB (may differ
-                # from the JSON, e.g. if the DocType was moved to "Saas Platform").
+    def _sync_service_doctypes_to_db(self):
+        """
+        Ensure Module Def and DocType records exist in the DB (create if missing).
+        Should run only once per site+service across all workers; caller uses
+        a file lock + sentinel. Uses frappe.db so must be called with DB connected.
+        """
+        if not getattr(self, "doctypes_path", None):
+            return
+        import os
+        from pathlib import Path
+        import json
+
+        if not os.path.isdir(self.doctypes_path):
+            return
+
+        service_app = self.name.replace("-", "_")
+        doctypes_dir = Path(self.doctypes_path)
+        imported_any = False
+
+        for json_path in doctypes_dir.glob("*/*.json"):
+            try:
+                with open(json_path, 'r') as f:
+                    doc = json.load(f)
+                doc_name = doc.get("name")
+                module = doc.get("module")
+
                 if doc_name and frappe.db.exists("DocType", doc_name):
                     try:
                         existing_module = frappe.db.get_value("DocType", doc_name, "module")
-                        _register_module(existing_module)
+                        self._register_module_for_service(existing_module, service_app)
                     except Exception:
                         pass
 
-                # Ensure Module Def exists so Frappe knows this module belongs
-                # to the service app, not to 'frappe'. This prevents the central
-                # site from misrouting the DocType's controller resolution.
                 if module:
                     self._ensure_module_def(module, service_app)
 
-                if doc_name:
-                    if not frappe.db.exists("DocType", doc_name):
-                        self.logger.info(f"Creating DocType {doc_name} in DB...")
-                        self._import_doc_without_cache_flush(doc)
-                        imported_any = True
-                    else:
-                        self.logger.debug(
-                            f"DocType {doc_name} already exists in DB, skipping import"
-                        )
-
-
+                if doc_name and not frappe.db.exists("DocType", doc_name):
+                    self.logger.info(f"Creating DocType {doc_name} in DB...")
+                    self._import_doc_without_cache_flush(doc)
+                    imported_any = True
             except Exception as e:
                 self.logger.error(
-                    f"Error reading/syncing DocType JSON at {json_path}: {e}",
+                    f"Error syncing DocType at {json_path}: {e}",
                     exc_info=True,
                 )
                 try:
@@ -510,6 +519,23 @@ class IsolationMixin:
 
         if imported_any:
             frappe.db.commit()
+
+    def _sync_service_doctypes(self):
+        """
+        Full sync: register from JSON (in-memory) then sync to DB.
+        Call this when you want both; for Gunicorn, use _register_service_doctypes_from_json
+        in every worker and _sync_service_doctypes_to_db once under lock.
+        """
+        self._register_service_doctypes_from_json()
+        self._sync_service_doctypes_to_db()
+
+    def _sync_fixtures_to_db(self):
+        """
+        Import fixture JSONs (e.g. SMS Settings, Email Templates) into the DB.
+        Delegates to _sync_fixtures_from_path which handles per-file error isolation.
+        """
+        logger = getattr(self, "logger", logging.getLogger("presync"))
+        _sync_fixtures_from_path(getattr(self, "fixtures_path", None), logger)
 
 
     def _import_doc_without_cache_flush(self, doc: dict):
@@ -602,3 +628,175 @@ class IsolationMixin:
                 raise
 
         frappe.model.base_document.import_controller = microservice_import_controller
+
+
+# ---------------------------------------------------------------------------
+# Standalone helpers for one-shot DB presync (called from entrypoint, not from
+# workers). These mirror the IsolationMixin methods but don't need `self`.
+# ---------------------------------------------------------------------------
+
+def _ensure_module_def_record(module_name: str, app_name: str, logger=None):
+    """Insert a Module Def record if it doesn't already exist. Idempotent."""
+    try:
+        if not frappe.db.table_exists("Module Def"):
+            return
+        if frappe.db.exists("Module Def", module_name):
+            return
+        m = frappe.get_doc({
+            "doctype": "Module Def",
+            "module_name": module_name,
+            "app_name": app_name,
+        })
+        m.flags.ignore_permissions = True
+        m.flags.ignore_mandatory = True
+        m.flags.ignore_links = True
+        m.insert()
+        frappe.db.commit()
+        if logger:
+            logger.info("Created Module Def '%s' -> app '%s'", module_name, app_name)
+    except Exception as e:
+        if logger:
+            logger.debug("Module Def '%s' skipped: %s", module_name, e)
+
+
+def _import_doc_suppressing_cache_reset(doc: dict):
+    """Import a DocType document without triggering reset_metadata_version."""
+    import frappe.cache_manager as _cm
+
+    original = _cm.reset_metadata_version
+    _cm.reset_metadata_version = lambda: None
+    try:
+        frappe.modules.import_file.import_doc(
+            doc,
+            ignore_version=True,
+            reset_permissions=False,
+        )
+    finally:
+        _cm.reset_metadata_version = original
+
+
+def _get_import_file_by_path():
+    """Lazy import of frappe.modules.import_file.import_file_by_path."""
+    from frappe.modules.import_file import import_file_by_path
+    return import_file_by_path
+
+
+def _sync_fixtures_from_path(fixtures_path: str | None, logger: logging.Logger):
+    """
+    Import all .json fixture files from fixtures_path into the DB.
+
+    Each file is imported via Frappe's import_file_by_path with force=True
+    (upsert semantics). Errors in one file do not block others.
+    """
+    if not fixtures_path or not os.path.isdir(fixtures_path):
+        if fixtures_path:
+            logger.warning("Fixtures directory not found: %s", fixtures_path)
+        return
+
+    _import = _get_import_file_by_path()
+
+    fix_dir = Path(fixtures_path)
+    for json_path in sorted(fix_dir.glob("*.json")):
+        try:
+            logger.info("presync: importing fixture %s", json_path.name)
+            frappe.flags.mute_emails = True
+            _import(
+                str(json_path),
+                data_import=True,
+                force=True,
+                reset_permissions=True,
+            )
+            frappe.flags.mute_emails = False
+            frappe.db.commit()
+        except Exception as e:
+            frappe.flags.mute_emails = False
+            logger.warning("presync: error importing fixture %s: %s", json_path.name, e)
+            try:
+                frappe.db.rollback()
+            except Exception:
+                pass
+
+
+def presync_service_doctypes(
+    doctypes_path: str | None = None,
+    service_name: str | None = None,
+    site: str | None = None,
+    sites_path: str | None = None,
+    fixtures_path: str | None = None,
+):
+    """
+    One-shot DB sync of service doctypes and fixtures. Designed to be called
+    once from the container entrypoint before Gunicorn starts.
+
+    Safe across multiple pods: all operations are idempotent (check-then-create
+    with caught duplicates). Two pods racing will both succeed without conflict.
+
+    Falls back to env vars: DOCTYPES_PATH, SERVICE_NAME, FRAPPE_SITE,
+    FRAPPE_SITES_PATH. Fixtures auto-discovered at <SERVICE_PATH>/fixtures/.
+    """
+    doctypes_path = doctypes_path or os.getenv("DOCTYPES_PATH")
+    if not fixtures_path:
+        service_path = os.getenv("SERVICE_PATH", "/app/service")
+        fixtures_path = os.path.join(service_path, "fixtures")
+    has_doctypes = doctypes_path and os.path.isdir(doctypes_path)
+    has_fixtures = fixtures_path and os.path.isdir(fixtures_path)
+    if not has_doctypes and not has_fixtures:
+        return
+
+    service_name = service_name or os.getenv("SERVICE_NAME", "")
+    service_app = service_name.replace("-", "_")
+    site = site or os.getenv("FRAPPE_SITE", "site1.local")
+    sites_path = sites_path or os.getenv("FRAPPE_SITES_PATH", "/app/sites")
+
+    logger = logging.getLogger("presync")
+
+    try:
+        frappe.init(site=site, sites_path=sites_path)
+        frappe.connect()
+    except Exception as e:
+        logger.warning("presync: cannot connect to DB (%s), skipping", e)
+        try:
+            frappe.destroy()
+        except Exception:
+            pass
+        return
+
+    try:
+        if has_doctypes:
+            doctypes_dir = Path(doctypes_path)
+            imported_any = False
+            for json_path in doctypes_dir.glob("*/*.json"):
+                try:
+                    with open(json_path, "r") as f:
+                        doc = json.load(f)
+
+                    module = doc.get("module")
+                    if module:
+                        _ensure_module_def_record(module, service_app, logger)
+
+                    doc_name = doc.get("name")
+                    if doc_name and not frappe.db.exists("DocType", doc_name):
+                        logger.info("presync: creating DocType %s", doc_name)
+                        _import_doc_suppressing_cache_reset(doc)
+                        imported_any = True
+                except Exception as e:
+                    logger.warning("presync: error syncing %s: %s", json_path, e)
+                    try:
+                        frappe.db.rollback()
+                    except Exception:
+                        pass
+
+            if imported_any:
+                frappe.db.commit()
+            logger.info("presync: service doctype sync complete")
+
+        if has_fixtures:
+            _sync_fixtures_from_path(fixtures_path, logger)
+            logger.info("presync: fixture sync complete")
+    except Exception as e:
+        logger.warning("presync: unexpected error: %s", e)
+    finally:
+        try:
+            frappe.destroy()
+        except Exception:
+            pass

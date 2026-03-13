@@ -102,10 +102,11 @@ class TestConfigurationGeneration:
         assert hasattr(utils, 'generate_site_config'), \
             "utils should have generate_site_config"
         
-        # If it's a re-export, the function should be from entrypoint module
+        # If it's a re-export, the function should be from entrypoint or site_config
         if hasattr(utils.generate_site_config, '__module__'):
-            assert 'entrypoint' in utils.generate_site_config.__module__, \
-                "generate_site_config should be re-exported from entrypoint"
+            mod = utils.generate_site_config.__module__
+            assert 'entrypoint' in mod or 'site_config' in mod, \
+                "generate_site_config should be re-exported from entrypoint or site_config"
 
 
 class TestSignupServiceSecurity:

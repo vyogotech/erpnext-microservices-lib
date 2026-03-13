@@ -319,16 +319,13 @@ class TestGetDocHooksErrorHandling:
         from tests.test_microservice_app import _reset_microservice_guards
 
         _reset_microservice_guards()
-        app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
 
         def exploding_get_doc_hooks():
             raise RuntimeError("hooks DB table missing")
 
-        with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app._patch_app_resolution()
-
         frappe.get_doc_hooks = exploding_get_doc_hooks
-        app._patch_hooks_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
 
         result = frappe.get_doc_hooks()
         assert result == {}
@@ -339,14 +336,10 @@ class TestGetDocHooksErrorHandling:
         from tests.test_microservice_app import _reset_microservice_guards
 
         _reset_microservice_guards()
-        app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
-
         frappe.get_doc_hooks = MagicMock(return_value="not-a-dict")
 
         with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app._patch_app_resolution()
-
-        app._patch_hooks_resolution()
+            app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
 
         result = frappe.get_doc_hooks()
         assert result == {}
