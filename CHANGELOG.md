@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.4.0] - 2026-03-14
+
+### Added
+- **Integrated Background Task Processing (RQ)**:
+  - Added `BackgroundTaskMixin` to `MicroserviceApp`.
+  - Embedded RQ worker that auto-starts when `ENABLE_RQ=1` is set.
+  - `app.enqueue_task()` method for queuing jobs with automatic Frappe context restoration.
+  - `_rq_job_wrapper` in `background.py` handles DB connection management, session restoration, and error logging for background jobs.
+- **Globalized Controller Registry**:
+  - `ControllerRegistry` is now a singleton managed via `frappe._microservice_registry`.
+  - This ensures that controllers auto-discovered or manually registered in the main process (e.g. Gunicorn) are correctly resolved in worker processes (RQ).
+  - Added `_scanned_paths` tracking to prevent redundant directory scans.
+- **Enhanced Isolation Logging**: Added detailed discovery logs in `app.py` and `isolation.py` to trace controller resolution in containerized environments.
+
+### Changed
+- **`setup.py`**: Added `rq>=1.16.0` to `install_requires`.
+- **`IsolationMixin`**: Now explicitly triggers controller discovery during initialization if `controllers_path` is provided.
+
+### Fixed
+- **Serialization Issues**: Resolved `Document` object pickling errors in background tasks by enforcing reference-based task arguments in services.
+- **Controller Resolution**: Fixed `AttributeError: 'Document' object has no attribute...` by ensuring the patched `import_controller` has access to the global registry across all forked processes.
+
 ## [1.3.1] - 2026-03-13
 
 ### Fixed

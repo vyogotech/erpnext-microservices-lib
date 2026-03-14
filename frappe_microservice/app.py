@@ -80,7 +80,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
                  log_level=None,
                  otel_exporter_url=None,
                  doctypes_path=None,
-                 fixtures_path=None):
+                 fixtures_path=None,
+                 controllers_path=None):
         """
         Initialize the microservice: create Flask app, set up logging and optional
         OpenTelemetry, resolve load_framework_hooks (frappe + service app + config),
@@ -176,11 +177,13 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
 
         self.doctypes_path = doctypes_path
         self.fixtures_path = fixtures_path or self._resolve_fixtures_path()
+        self.controllers_path = controllers_path or self._resolve_controllers_path()
         self._service_doctype_names = set()
         self._db_connected = False
         self._frappe_local_base = None
 
         self._initialize_frappe()
+        self._auto_discover_controllers()
         self._maybe_start_rq_worker()
 
     @property
@@ -192,6 +195,32 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
         if not self._central_client:
             self._central_client = CentralSiteClient(url=self.central_site_url)
         return self._central_client
+
+    def _resolve_controllers_path(self):
+        """Derive controllers_path from SERVICE_PATH convention: <SERVICE_PATH>/controllers."""
+        service_path = os.getenv("SERVICE_PATH", os.getcwd())
+        path = os.path.join(service_path, "controllers")
+        if os.path.isdir(path):
+            return path
+        return None
+
+    def _auto_discover_controllers(self):
+        """Auto-discover and register DocType controllers from controllers_path."""
+        if not self.controllers_path:
+            self.logger.warning("⚠️ No controllers_path specified. Skipping auto-discovery.")
+            return
+            
+        if not os.path.isdir(self.controllers_path):
+            self.logger.warning(f"⚠️ controllers_path is not a directory: {self.controllers_path}. Skipping auto-discovery.")
+            return
+
+        self.logger.info(f"🔍 Starting controller discovery in: {self.controllers_path}")
+        from frappe_microservice.controller import get_controller_registry
+        registry = get_controller_registry()
+        registry.auto_discover_controllers(self.controllers_path)
+        
+        discovered = list(registry.list_controllers().keys())
+        self.logger.info(f"✅ Auto-discovered controllers: {discovered}")
 
     @staticmethod
     def _resolve_fixtures_path():

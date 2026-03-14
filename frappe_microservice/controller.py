@@ -17,7 +17,7 @@ Usage:
                 self.status = 'Draft'
 """
 
-from typing import Dict, Type, Optional, Any
+from typing import Dict, Type, Optional, Any, List, Set
 import importlib
 import os
 import sys
@@ -169,6 +169,7 @@ class ControllerRegistry:
     def __init__(self):
         self._controllers: Dict[str, Type[DocumentController]] = {}
         self._controller_paths: list = []
+        self._scanned_paths: Set[str] = set()
     
     def register_controller(self, doctype: str, controller_class: Type[DocumentController]):
         """
@@ -189,7 +190,7 @@ class ControllerRegistry:
             controller_class: Controller class (subclass of DocumentController)
         """
         self._controllers[doctype] = controller_class
-        logger.info(f"✅ Registered controller: {doctype} -> {controller_class.__name__}")
+        logger.info(f"✅ [Registry] Registered: {doctype} -> {controller_class.__name__} (id={id(self)})")
     
     def get_controller(self, doctype: str) -> Optional[Type[DocumentController]]:
         """Get controller class for doctype"""
@@ -217,21 +218,30 @@ class ControllerRegistry:
         
         Looks for Python files and tries to import controller classes.
         File naming convention: sales_order.py -> SalesOrder class
-        
-        Args:
-            directory: Directory containing controller files
         """
-        if not os.path.exists(directory):
-            logger.warning(f"⚠️  Controller directory not found: {directory}")
+        if not directory or not os.path.exists(directory):
             return
-        
-        # Add directory to Python path
+
+        # Singleton guard: if we've already scanned this exact path in THIS process,
+        # we can skip it. Note: In standard RQ forking workers, this will still
+        # run once per job in the child process unless discovery is triggered 
+        # in the parent process setup.
+        if directory in self._scanned_paths:
+            return
+
+        parent_dir = os.path.dirname(directory)
+        dir_name = os.path.basename(directory)
+        if parent_dir not in sys.path:
+            sys.path.insert(0, parent_dir)
         if directory not in sys.path:
             sys.path.insert(0, directory)
+            
+        logger.info(f"🔍 [Registry] Discovering in: {directory} (id={id(self)})")
         
-        logger.info(f"🔍 Discovering controllers in: {directory}")
+        from frappe.model.document import Document as FrappeDocument
+        valid_bases = (DocumentController, FrappeDocument)
         
-        # Find all .py files
+        registered = []
         for file_path in Path(directory).glob('*.py'):
             if file_path.name.startswith('_'):
                 continue
@@ -241,25 +251,31 @@ class ControllerRegistry:
             class_name = self._filename_to_classname(module_name)
             
             try:
-                # Import module
-                spec = importlib.util.spec_from_file_location(module_name, file_path)
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
+                # Use standard import so the module identity is canonical
+                qualified_name = f"{dir_name}.{module_name}"
+                module = importlib.import_module(qualified_name)
                 
-                # Get controller class
                 if hasattr(module, class_name):
                     controller_class = getattr(module, class_name)
                     
-                    # Verify it's a DocumentController subclass
-                    if isinstance(controller_class, type) and issubclass(controller_class, DocumentController):
-                        self.register(doctype, controller_class)
-                    else:
-                        logger.warning(f"⚠️  {class_name} in {file_path.name} is not a DocumentController")
-                else:
-                    logger.warning(f"⚠️  No class {class_name} found in {file_path.name}")
-            
+                    if isinstance(controller_class, type) and issubclass(controller_class, valid_bases):
+                        # Only log and register if NOT already present
+                        if doctype not in self._controllers:
+                            self.register(doctype, controller_class)
+                            registered.append(doctype)
+                        else:
+                            # Re-verify identity to be safe
+                            if self._controllers[doctype] != controller_class:
+                                self.register(doctype, controller_class)
+                                registered.append(doctype)
+                
             except Exception as e:
                 logger.error(f"❌ Error loading controller from {file_path.name}: {e}")
+
+        if registered:
+            logger.info(f"✅ Registered controllers: {', '.join(registered)}")
+            
+        self._scanned_paths.add(directory)
 
     def setup_controllers(self, app):
         """
@@ -325,8 +341,11 @@ def register_controller(doctype: str):
 
 
 def get_controller_registry() -> ControllerRegistry:
-    """Get the global controller registry"""
-    return _registry
+    """Get the global controller registry (ensures sharing across modules)"""
+    if not hasattr(frappe, "_microservice_registry"):
+        frappe._microservice_registry = ControllerRegistry()
+        logger.info(f"✨ [Registry] Initialized NEW global registry (id={id(frappe._microservice_registry)})")
+    return frappe._microservice_registry
 
 
 def setup_controllers(app, controllers_directory: str = None):

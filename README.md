@@ -15,6 +15,7 @@ A Python framework for building secure, isolated Frappe microservices with prope
 - 📚 **Auto-Generated Swagger Docs**: Interactive API documentation at `/apidocs`
 - 🔑 **OAuth2 + SID Authentication**: Support for Bearer tokens and session cookies
 - 🛡️ **SQL Injection Prevention**: Mandatory parameterized queries
+- ⚙️ **Integrated Background Tasks**: Built-in RQ support for asynchronous processing
 
 ## Installation
 
@@ -301,6 +302,47 @@ def sync_with_central(user):
     
     return {"status": "synced"}
 ```
+
+## Background Task Processing (RQ)
+
+The framework includes integrated support for **RQ (Redis Queue)** to handle long-running tasks like tenant provisioning or email sending.
+
+### Activation
+
+Background task processing is disabled by default. Enable it by setting the following environment variables in your container:
+
+| Variable | Description |
+|----------|-------------|
+| `ENABLE_RQ` | Set to `1` to auto-start the embedded RQ worker thread |
+| `REDIS_URL` | Redis connection URL (default: `redis://localhost:6379`) |
+
+### Usage in Code
+
+Any `MicroserviceApp` instance can enqueue tasks directly:
+
+```python
+from frappe_microservice import create_microservice
+
+app = create_microservice("my-service")
+
+@app.secure_route('/task', methods=['POST'])
+def trigger_task(user):
+    # Enqueue a function to run in the background
+    # The framework automatically restores Frappe context in the worker!
+    app.enqueue_task(long_running_function, arg1, kwarg1="value")
+    return {"status": "enqueued"}
+
+def long_running_function(arg1, kwarg1=None):
+    import frappe
+    # Full Frappe API available here
+    frappe.get_doc({...}).insert()
+    frappe.db.commit()
+```
+
+### Features:
+- **Zero Configuration**: No separate worker process needed; it runs as a daemon thread inside your service container.
+- **Context Preservation**: Automatically restores `frappe.local` and DB connections in the worker process.
+- **Controller Support**: Auto-discovery of DocType controllers works seamlessly in background tasks.
 
 **Configuration Environment Variables:**
 

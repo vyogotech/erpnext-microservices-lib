@@ -39,6 +39,113 @@ def _set_depth(value):
     _get_attr_depth.value = value
 
 
+_SERVICE_DOCTYPES = set()
+
+
+def apply_controller_patch():
+    """
+    Standalone function to patch frappe.model.base_document.import_controller.
+    Allows microservice doctypes with custom controllers to fall back to the
+    ControllerRegistry or base Document if their Python module is missing.
+    """
+    if getattr(frappe, "_microservice_controller_patched", False):
+        return
+
+    frappe._microservice_controller_patched = True
+
+    original_import_controller = frappe.model.base_document.import_controller
+
+    import logging
+    _logger = logging.getLogger(__name__)
+
+    def microservice_import_controller(doctype):
+        _logger.debug(f"🔍 [Isolation] Resolution request for: {doctype}")
+        try:
+            return original_import_controller(doctype)
+        except (ImportError, ModuleNotFoundError):
+            from frappe_microservice.controller import get_controller_registry
+            registry = get_controller_registry()
+            
+            reg_id = id(registry)
+            keys = list(registry.list_controllers().keys())
+            _logger.debug(f"🔍 [Isolation] original_import_controller failed for {doctype}. registry_id={reg_id}, keys={keys}")
+
+            # Universal fallback to ControllerRegistry
+            controller_class = registry.get_controller(doctype)
+            if controller_class:
+                _logger.debug(f"✅ [Isolation] Resolved {doctype} -> {controller_class.__name__} (id={reg_id})")
+                return controller_class
+            
+            # If not in registry and it should have been (known service doctype), log a warning
+            if doctype in _SERVICE_DOCTYPES:
+                _logger.warning(
+                    f"⚠️ [Isolation] Doctype {doctype} MISSING from registry! "
+                    f"registry_id={reg_id}, keys={keys}. "
+                    "Falling back to Document."
+                )
+                return frappe.model.document.Document
+            
+            _logger.debug(f"❌ [Isolation] {doctype} not in registry or service_doctypes. Re-raising.")
+            raise
+
+    frappe.model.base_document.import_controller = microservice_import_controller
+
+
+def register_module_for_service(module_str, service_app):
+    """Register a module -> service_app in frappe.local (in-memory only)."""
+    if not module_str:
+        return
+    if not hasattr(frappe.local, "module_app"):
+        frappe.local.module_app = {}
+    if not hasattr(frappe.local, "app_modules"):
+        frappe.local.app_modules = {}
+    if service_app not in frappe.local.app_modules:
+        frappe.local.app_modules[service_app] = []
+
+    scrubbed = module_str.lower().replace(" ", "_")
+    for key in (module_str, scrubbed):
+        if key not in frappe.local.module_app:
+            frappe.local.module_app[key] = service_app
+        if key not in frappe.local.app_modules[service_app]:
+            frappe.local.app_modules[service_app].append(key)
+
+
+def register_service_doctypes(doctypes_path, service_name, logger=None):
+    """
+    Scan doctypes_path for DocType JSONs and register doctype names and
+    module mappings in memory only (no DB).
+    """
+    if not doctypes_path:
+        return set()
+
+    if not os.path.isdir(doctypes_path):
+        if logger:
+            logger.warning(f"DocTypes directory not found: {doctypes_path}")
+        return set()
+
+    service_app = service_name.replace("-", "_")
+    doctypes_dir = Path(doctypes_path)
+    found_names = set()
+
+    for json_path in doctypes_dir.glob("*/*.json"):
+        try:
+            with open(json_path, 'r') as f:
+                doc = json.load(f)
+            doc_name = doc.get("name")
+            if doc_name:
+                found_names.add(doc_name)
+            module = doc.get("module")
+            register_module_for_service(module, service_app)
+        except Exception as e:
+            if logger:
+                logger.error(f"Error reading DocType JSON at {json_path}: {e}")
+
+    _SERVICE_DOCTYPES.update(found_names)
+    apply_controller_patch()
+
+    return found_names
+
+
 class IsolationMixin:
     """
     Mixin for MicroserviceApp that provides app/module isolation.
@@ -458,6 +565,7 @@ class IsolationMixin:
                 doc_name = doc.get("name")
                 if doc_name:
                     self._service_doctype_names.add(doc_name)
+                    _SERVICE_DOCTYPES.add(doc_name)
                     self.logger.debug(f"Found service DocType: {doc_name}")
                 module = doc.get("module")
                 self._register_module_for_service(module, service_app)
@@ -605,29 +713,7 @@ class IsolationMixin:
         ControllerRegistry (if registered) or base Document, instead of
         raising ImportError.
         """
-        if getattr(frappe, "_microservice_controller_patched", False):
-            return
-
-        frappe._microservice_controller_patched = True
-
-        original_import_controller = frappe.model.base_document.import_controller
-        service_doctype_names = self._service_doctype_names
-
-        def microservice_import_controller(doctype):
-            try:
-                return original_import_controller(doctype)
-            except (ImportError, ModuleNotFoundError):
-                if doctype in service_doctype_names:
-                    from frappe_microservice.controller import get_controller_registry
-                    registry = get_controller_registry()
-                    controller_class = registry.get_controller(doctype)
-                    if controller_class:
-                        return controller_class
-
-                    return frappe.model.document.Document
-                raise
-
-        frappe.model.base_document.import_controller = microservice_import_controller
+        apply_controller_patch()
 
 
 # ---------------------------------------------------------------------------
