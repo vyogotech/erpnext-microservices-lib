@@ -8,10 +8,12 @@
 - **Isolation**: Fixed `ImportError` (ModuleNotFoundError) in `microservice_import_controller` by adding an explicit fallback to `frappe.model.document.Document` when a service doctype controller is not found.
 - **Tests**: Resolved multiple regressions in `test_background_rq.py`, `test_controllers.py`, and `test_service_doctypes.py` related to mocking and global state.
 - **Mocks**: Added missing `__name__` attributes to mocked controller classes in tests to prevent `AttributeError`.
+- **Test Coverage**: Increased code coverage to **81.24%** by implementing targeted tests for previously uncovered branches in `site_config.py` and `isolation.py`.
 
 ### Added
 - **Integrated RQ**: Standardized environment variables (`ENABLE_RQ`, `REDIS_URL`) for embedded RQ worker activation.
 - **Global Discovery**: Automated controller discovery now targets the global registry by default.
+- **Coverage Suite**: Added `tests/test_coverage_gap.py` to ensure high coverage of edge cases and exception handlers.
 
 ## [1.4.0] - 2026-03-14
 
