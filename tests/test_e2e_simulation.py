@@ -25,8 +25,14 @@ from frappe_microservice.core import MicroserviceApp
 
 def _reset_isolation():
     """Reset all isolation state between tests."""
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in (
+        "_microservice_isolation_applied",
+        "_microservice_load_app_hooks_patched",
+        "_microservice_hooks_resolution_patched",
+        "_microservice_controller_patched",
+    ):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
 
 CENTRAL_SITE_APP_MODULES = {
@@ -57,26 +63,19 @@ class TestFullLifecycleSimulation:
         the service only sees frappe + erpnext + signup_service.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-            frappe_site="dev.localhost",
-        )
 
         contaminated_modules = deepcopy(CENTRAL_SITE_APP_MODULES)
         contaminated_module_app = deepcopy(CENTRAL_SITE_MODULE_APP)
 
-        def fake_init(site=None, sites_path=None):
-            frappe.local.site = site
-            frappe.local.app_modules = deepcopy(contaminated_modules)
-            frappe.local.module_app = deepcopy(contaminated_module_app)
-            frappe.local.conf = MagicMock()
-            frappe.local.conf.db_name = "_test_db"
-
         with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+                frappe_site="dev.localhost",
+            )
 
-        fake_init(site="dev.localhost")
+        frappe.local.app_modules = deepcopy(contaminated_modules)
+        frappe.local.module_app = deepcopy(contaminated_module_app)
         app._filter_module_maps()
 
         assert set(frappe.local.app_modules.keys()) == {'frappe', 'erpnext'}
@@ -103,13 +102,11 @@ class TestFullLifecycleSimulation:
         but apps.txt only has frappe. Verify erpnext is not force-loaded.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "order-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
         with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "order-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         installed = frappe.get_installed_apps()
         assert 'frappe' in installed
@@ -242,14 +239,11 @@ class TestMultiServiceSimulation:
         Each must see only its own allowed set.
         """
         _reset_isolation()
-        signup_app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps",
-                    return_value=["frappe", "erpnext"]):
-            signup_app._patch_app_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            signup_app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         signup_installed = frappe.get_installed_apps()
         assert 'frappe' in signup_installed
@@ -262,13 +256,11 @@ class TestMultiServiceSimulation:
         assert signup_module_keys == {'frappe', 'erpnext'}
 
         _reset_isolation()
-        order_app = MicroserviceApp(
-            "order-service",
-            load_framework_hooks=['frappe'],
-        )
-
         with patch("frappe.get_all_apps", return_value=["frappe"]):
-            order_app._patch_app_resolution()
+            order_app = MicroserviceApp(
+                "order-service",
+                load_framework_hooks=['frappe'],
+            )
 
         order_installed = frappe.get_installed_apps()
         assert 'frappe' in order_installed
@@ -359,27 +351,21 @@ class TestServiceRestartSimulation:
         is called again, and isolation must work as before.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps",
-                    return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         first_installed = frappe.get_installed_apps()
         assert 'hrms' not in first_installed
 
         _reset_isolation()
-
-        app2 = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-        with patch("frappe.get_all_apps",
-                    return_value=["frappe", "erpnext"]):
-            app2._patch_app_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app2 = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         second_installed = frappe.get_installed_apps()
         assert first_installed == second_installed
@@ -390,26 +376,21 @@ class TestServiceRestartSimulation:
         from container image). The new instance should reflect the change.
         """
         _reset_isolation()
-        app1 = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps",
-                    return_value=["frappe", "erpnext"]):
-            app1._patch_app_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app1 = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         v1 = frappe.get_installed_apps()
         assert 'erpnext' in v1
 
         _reset_isolation()
-        app2 = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
         with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app2._patch_app_resolution()
+            app2 = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         v2 = frappe.get_installed_apps()
         assert 'erpnext' not in v2, \
@@ -430,13 +411,6 @@ class TestHooksContamination:
         process hooks from frappe and erpnext.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
 
         def central_site_doc_hooks():
             return {
@@ -461,7 +435,11 @@ class TestHooksContamination:
             }
 
         frappe.get_doc_hooks = central_site_doc_hooks
-        app._patch_hooks_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         filtered = frappe.get_doc_hooks()
 
@@ -485,17 +463,14 @@ class TestHooksContamination:
         non-allowed apps must raise AttributeError to prevent ImportError.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
-
         original_attr = MagicMock(return_value=lambda: None)
         frappe.get_attr = original_attr
-        app._patch_hooks_resolution()
+
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         result = frappe.get_attr("frappe.utils.now")
         assert result is not None
@@ -514,13 +489,6 @@ class TestHooksContamination:
     def test_hooks_with_no_dot_in_handler_pass_through(self):
         """Handlers without dots (edge case) should pass through unfiltered."""
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe'],
-        )
-
-        with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app._patch_app_resolution()
 
         def doc_hooks_with_plain_handler():
             return {
@@ -533,12 +501,71 @@ class TestHooksContamination:
             }
 
         frappe.get_doc_hooks = doc_hooks_with_plain_handler
-        app._patch_hooks_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe'],
+            )
 
         filtered = frappe.get_doc_hooks()
         handlers = filtered["User"]["on_update"]
         assert "plain_handler_no_dots" in handlers
         assert "frappe.core.on_update" in handlers
+
+    def test_get_attr_reentrancy_depth_guard_avoids_recursion(self):
+        """
+        When already inside the get_attr wrapper (depth > 0), a nested call
+        must delegate to the original get_attr only, avoiding RecursionError
+        (e.g. when hook code or query builder triggers get_attr again).
+        """
+        from frappe_microservice.isolation import _get_depth, _set_depth
+
+        _reset_isolation()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
+
+        try:
+            _set_depth(1)
+            result = frappe.get_attr("frappe.utils.now")
+            assert callable(result)
+        finally:
+            _set_depth(0)
+
+    @pytest.mark.integration
+    def test_get_attr_nested_call_from_filters_hooks_no_recursion(self):
+        """
+        get_additional_filters_from_hooks() calls get_attr(hook)() for each
+        hook. If a hook's callable triggers get_attr again (e.g. DB query
+        path), the re-entrancy guard must prevent RecursionError.
+        Requires real Frappe installation (not mocked).
+        """
+
+        def _hook_that_calls_get_attr_nested():
+            frappe.get_attr("frappe.utils.now")
+            return {}
+
+        _reset_isolation()
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe'],
+            )
+
+        import frappe.utils as utils_mod
+        utils_mod._test_hook_nested = _hook_that_calls_get_attr_nested
+        try:
+            filter_hooks = ["frappe.utils._test_hook_nested"]
+            result = frappe._dict()
+            for hook in filter_hooks:
+                result.update(frappe.get_attr(hook)())
+            assert isinstance(result, (dict, type(frappe._dict())))
+        finally:
+            if hasattr(utils_mod, "_test_hook_nested"):
+                del utils_mod._test_hook_nested
+        _reset_isolation()
 
 
 class TestEdgeCases:
@@ -550,13 +577,11 @@ class TestEdgeCases:
         include frappe and its own app name.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
         with patch("frappe.get_all_apps", return_value=[]):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         installed = frappe.get_installed_apps()
         assert 'frappe' in installed
@@ -569,14 +594,12 @@ class TestEdgeCases:
         frappe + service app.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
         with patch("frappe.get_all_apps",
                     side_effect=FileNotFoundError("apps.txt not found")):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         installed = frappe.get_installed_apps()
         assert 'frappe' in installed
@@ -588,14 +611,12 @@ class TestEdgeCases:
         even if apps.txt has many apps.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks='none',
-        )
-
         with patch("frappe.get_all_apps",
                     return_value=["frappe", "erpnext", "hrms"]):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks='none',
+            )
 
         installed = frappe.get_installed_apps()
         assert 'frappe' in installed
@@ -606,13 +627,11 @@ class TestEdgeCases:
     def test_service_name_with_hyphens_converted_to_underscores(self):
         """Service name signup-service -> signup_service in app list."""
         _reset_isolation()
-        app = MicroserviceApp(
-            "my-complex-service-name",
-            load_framework_hooks=['frappe'],
-        )
-
         with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "my-complex-service-name",
+                load_framework_hooks=['frappe'],
+            )
 
         installed = frappe.get_installed_apps()
         assert 'my_complex_service_name' in installed
@@ -622,14 +641,12 @@ class TestEdgeCases:
         If apps.txt has duplicates, the result should not have duplicates.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "test-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
         with patch("frappe.get_all_apps",
                     return_value=["frappe", "erpnext", "frappe", "erpnext"]):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "test-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         installed = frappe.get_installed_apps()
         assert installed.count('frappe') == 1
@@ -686,14 +703,12 @@ class TestEdgeCases:
         consistent results after patching.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "test-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
         with patch("frappe.get_all_apps",
                     return_value=["frappe", "erpnext", "hrms"]):
-            app._patch_app_resolution()
+            app = MicroserviceApp(
+                "test-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
             installed = frappe.get_installed_apps()
             all_apps = frappe.get_all_apps()
@@ -724,17 +739,6 @@ class TestCompleteSignupServiceScenario:
         The fix must prevent this entire chain.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
-
-        frappe.local.app_modules = deepcopy(CENTRAL_SITE_APP_MODULES)
-        frappe.local.module_app = deepcopy(CENTRAL_SITE_MODULE_APP)
-        app._filter_module_maps()
 
         import_calls = []
         original_get_attr = MagicMock(side_effect=lambda m: import_calls.append(m))
@@ -752,7 +756,15 @@ class TestCompleteSignupServiceScenario:
             }
 
         frappe.get_doc_hooks = central_doc_hooks
-        app._patch_hooks_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
+
+        frappe.local.app_modules = deepcopy(CENTRAL_SITE_APP_MODULES)
+        frappe.local.module_app = deepcopy(CENTRAL_SITE_MODULE_APP)
+        app._filter_module_maps()
 
         hooks = frappe.get_doc_hooks()
         user_hooks = hooks.get("User", {}).get("after_insert", [])
@@ -775,19 +787,6 @@ class TestCompleteSignupServiceScenario:
         hooks are properly isolated.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
-
-        frappe.local.app_modules = deepcopy(CENTRAL_SITE_APP_MODULES)
-        frappe.local.module_app = deepcopy(CENTRAL_SITE_MODULE_APP)
-        app._filter_module_maps()
-
-        assert len(frappe.local.app_modules) == 2
 
         def fake_doc_hooks():
             return {
@@ -799,10 +798,21 @@ class TestCompleteSignupServiceScenario:
                 }
             }
 
-        frappe.get_doc_hooks = fake_doc_hooks
         sentinel = object()
+        frappe.get_doc_hooks = fake_doc_hooks
         frappe.get_attr = MagicMock(return_value=sentinel)
-        app._patch_hooks_resolution()
+
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
+
+        frappe.local.app_modules = deepcopy(CENTRAL_SITE_APP_MODULES)
+        frappe.local.module_app = deepcopy(CENTRAL_SITE_MODULE_APP)
+        app._filter_module_maps()
+
+        assert len(frappe.local.app_modules) == 2
 
         hooks = frappe.get_doc_hooks()
         handlers = hooks.get("User", {}).get("on_update", [])
@@ -869,13 +879,6 @@ class TestAppNotInstalledErrorHandling:
         the wrapper must convert it to AttributeError.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
 
         frappe.AppNotInstalledError = type(
             'AppNotInstalledError', (Exception,), {})
@@ -885,7 +888,11 @@ class TestAppNotInstalledErrorHandling:
                 f"App not installed: {method_string}")
 
         frappe.get_attr = raising_get_attr
-        app._patch_hooks_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         with pytest.raises(AttributeError, match="non-installed app"):
             frappe.get_attr("frappe.utils.now")
@@ -897,19 +904,16 @@ class TestAppNotInstalledErrorHandling:
         instead of crashing the request.
         """
         _reset_isolation()
-        app = MicroserviceApp(
-            "signup-service",
-            load_framework_hooks=['frappe', 'erpnext'],
-        )
-
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app._patch_app_resolution()
 
         def raising_get_attr(method_string):
             raise ImportError(f"No module named '{method_string}'")
 
         frappe.get_attr = raising_get_attr
-        app._patch_hooks_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+            app = MicroserviceApp(
+                "signup-service",
+                load_framework_hooks=['frappe', 'erpnext'],
+            )
 
         with pytest.raises(AttributeError, match="non-installed app"):
             frappe.get_attr("frappe.nonexistent.module.func")

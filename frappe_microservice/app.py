@@ -3,8 +3,8 @@ MicroserviceApp -- the main application class for Frappe microservices.
 
 This module defines the primary entry point for building microservices:
 - MicroserviceApp: Flask-based app that composes IsolationMixin, AuthMixin, and ResourceMixin.
-  It handles Frappe init per request, logging, OpenTelemetry, middleware (before/after request),
-  secure_route (auth + tenant resolution + error handling), and run().
+  It initializes Frappe once at server startup, reuses the DB connection across requests,
+  and provides secure_route (auth + tenant resolution + error handling) and run().
 - create_microservice(): Factory that returns a configured MicroserviceApp instance.
 
 Developers typically use: app = create_microservice("my-service") then @app.secure_route(...).
@@ -12,12 +12,16 @@ Developers typically use: app = create_microservice("my-service") then @app.secu
 
 from flask import Flask, request, jsonify, g, has_app_context
 from functools import wraps
-import frappe
+import copy
 import os
 import logging
 import traceback
 import uuid
-from frappe_microservice.entrypoint import create_site_config
+
+import frappe
+from frappe.utils.local import _contextvar
+
+from frappe_microservice.site_config import create_site_config
 from frappe_microservice.tenant import TenantAwareDB, get_user_tenant_id
 from frappe_microservice.isolation import IsolationMixin
 from frappe_microservice.auth import AuthMixin
@@ -72,7 +76,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                  load_framework_hooks=None,
                  log_level=None,
                  otel_exporter_url=None,
-                 doctypes_path=None):
+                 doctypes_path=None,
+                 fixtures_path=None):
         """
         Initialize the microservice: create Flask app, set up logging and optional
         OpenTelemetry, resolve load_framework_hooks (frappe + service app + config),
@@ -167,7 +172,12 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
             self.logger.warning("Flasgger not found. Swagger documentation disabled.")
 
         self.doctypes_path = doctypes_path
+        self.fixtures_path = fixtures_path or self._resolve_fixtures_path()
         self._service_doctype_names = set()
+        self._db_connected = False
+        self._frappe_local_base = None
+
+        self._initialize_frappe()
 
     @property
     def central(self):
@@ -178,6 +188,15 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         if not self._central_client:
             self._central_client = CentralSiteClient(url=self.central_site_url)
         return self._central_client
+
+    @staticmethod
+    def _resolve_fixtures_path():
+        """Derive fixtures_path from SERVICE_PATH convention: <SERVICE_PATH>/fixtures."""
+        service_path = os.getenv("SERVICE_PATH")
+        if not service_path:
+            return None
+        candidate = os.path.join(service_path, "fixtures")
+        return candidate if os.path.isdir(candidate) else None
 
     def _setup_logging(self):
         """
@@ -255,42 +274,163 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         """
         g.tenant_id = tenant_id
 
+    def _initialize_frappe(self):
+        """
+        Phase 1: One-time Frappe initialization at server startup.
+
+        Runs frappe.init(), applies all isolation patches, and captures the
+        resulting frappe.local dict for reuse across requests. Does NOT open
+        a DB connection -- that is deferred to the first real request so
+        gunicorn workers can fork safely.
+        """
+        try:
+            create_site_config()
+        except Exception as e:
+            self.logger.error(f"Failed to create site_config.json: {e}")
+
+        self._patch_app_resolution()
+        frappe.init(site=self.frappe_site, sites_path=self.sites_path)
+        self._filter_module_maps()
+        self._patch_controller_resolution()
+        self._patch_hooks_resolution()
+
+        if self.db_host:
+            frappe.local.conf.db_host = self.db_host
+
+        frappe.local.session = frappe._dict(user='Guest', sid=None, data=frappe._dict())
+
+        self._patch_version_session_data()
+
+        self._frappe_local_base = _contextvar.get()
+        self._main_pid = os.getpid()
+        self.logger.info("Frappe initialized at startup (DB deferred to first request)")
+
+    def _patch_version_session_data(self):
+        """Patch Frappe Version doctype so session.data.get() never crashes when data is None."""
+        try:
+            from frappe.core.doctype.version import version as version_module
+            _set_impersonator = version_module.Version.set_impersonator
+
+            @staticmethod
+            def _safe_set_impersonator(data):
+                if not frappe.session:
+                    return
+                session_data = getattr(frappe.session, "data", None)
+                if session_data is None:
+                    frappe.session.data = frappe._dict()
+                    session_data = frappe.session.data
+                if impersonator := session_data.get("impersonated_by"):
+                    data["impersonated_by"] = impersonator
+                if audit_user := session_data.get("audit_user"):
+                    data["audit_user"] = audit_user
+
+            version_module.Version.set_impersonator = _safe_set_impersonator
+        except Exception as e:
+            self.logger.warning("Could not patch Version.set_impersonator: %s", e)
+
+    def _restore_frappe_local(self):
+        """
+        Restore frappe.local from the startup-captured dict and reset
+        per-request fields. On the first call per worker process, opens the
+        DB connection and registers service doctypes in memory.
+
+        DB sync of doctypes is handled by the entrypoint (presync) before
+        Gunicorn starts. In dev mode (no entrypoint), falls back to
+        _sync_service_doctypes_to_db() on first request.
+
+        The DB object is stored on `self` rather than relying on the
+        ContextVar dict mutation, because Werkzeug may run each request in
+        a copied context that doesn't see in-place dict changes from prior
+        requests.
+
+        When Gunicorn runs with --preload, the app is loaded once in the
+        master; workers inherit the same _frappe_local_base. Each worker
+        must use its own copy so DB and request state are not shared.
+        """
+        if os.getpid() != self._main_pid:
+            if not getattr(self, "_worker_local_copied", False):
+                self._frappe_local_base = copy.deepcopy(self._frappe_local_base)
+                self._worker_local_copied = True
+        _contextvar.set(self._frappe_local_base)
+
+        # Frappe's Version doctype expects frappe.session.data to be a dict (e.g. .get("impersonated_by"))
+        if getattr(frappe.local, "session", None) is not None:
+            if not getattr(frappe.local.session, "data", None):
+                frappe.local.session.data = frappe._dict()
+
+        if not self._db_connected:
+            frappe.connect(set_admin_as_user=False)
+            self._db_obj = frappe.local.db
+            self._register_service_doctypes_from_json()
+            if not os.getenv("_DOCTYPES_PRESYNCED"):
+                self._sync_service_doctypes_to_db()
+                self._sync_fixtures_to_db()
+            self._db_connected = True
+            self.logger.info("DB connection established on first request")
+        else:
+            frappe.local.db = self._db_obj
+            try:
+                self._db_obj._conn.ping()
+            except Exception as e:
+                self.logger.warning("DB connection lost (%s: %s), reconnecting",
+                                    type(e).__name__, e)
+                frappe.connect(set_admin_as_user=False)
+                self._db_obj = frappe.local.db
+
+        frappe.local.form_dict = frappe._dict()
+        frappe.local.request_ip = request.remote_addr
+        frappe.local.flags = frappe._dict(currently_saving=[])
+        frappe.local.session = frappe._dict(user='Guest', sid=None, data=frappe._dict())
+        frappe.local.error_log = []
+        frappe.local.message_log = []
+
+    _SKIP_PATHS = frozenset(('/health', '/socket.io/', '/socket.io'))
+
     def _setup_middleware(self):
         """
         Register Flask before_request, after_request, and errorhandler.
-        - before_request: If Frappe not yet initialized for this thread, patch app
-          resolution, call frappe.init(), filter module maps, optionally override db_host,
-          frappe.connect(), set session to Guest, patch hooks resolution; then set
-          form_dict, request_ip, g._frappe_rolled_back, g.request_id.
-        - after_request: Clear form_dict, commit DB (unless rolled back), add X-Request-ID to response.
-        - errorhandler: Catch unhandled exceptions, log traceback, return JSON 500.
+        - before_request: Restore frappe.local from startup state, reset
+          per-request fields. Skips /health and /socket.io entirely.
+        - after_request: Commit DB (unless rolled back). Never closes
+          the connection -- it is reused across requests.
+        - errorhandler: Catch unhandled exceptions, return JSON 500.
         """
 
         @self.flask_app.before_request
         def frappe_before_request():
-            return self.setup_frappe_context()
+            if request.path in self._SKIP_PATHS:
+                return None
+
+            try:
+                self._restore_frappe_local()
+            except Exception as e:
+                self.logger.error(
+                    "Frappe context restore failed: %s", e, exc_info=True)
+                return jsonify({
+                    "status": "error",
+                    "message": "Service temporarily unavailable.",
+                    "type": type(e).__name__,
+                    "code": 503,
+                }), 503
+
+            g._frappe_rolled_back = False
+            g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
+            self.logger.info(
+                f"Request started: {request.method} {request.path} "
+                f"[request_id={g.request_id}]")
 
         @self.flask_app.after_request
         def cleanup_frappe_context(response):
-            """
-            Clean up after each request: clear Frappe form_dict, commit the DB
-            transaction (unless the request set g._frappe_rolled_back), and add
-            X-Request-ID to response headers for tracing.
-            """
-            try:
-                if hasattr(frappe, 'local') and hasattr(frappe.local, 'form_dict'):
-                    frappe.local.form_dict.clear()
+            if request.path in self._SKIP_PATHS:
+                return response
 
+            try:
                 if hasattr(frappe, 'db') and frappe.db:
                     if not getattr(g, '_frappe_rolled_back', False):
-                        frappe.db.commit()
-                        self.logger.debug("Transaction committed successfully")
-                    else:
-                        self.logger.debug("Skipped commit (transaction was rolled back)")
-
-                if hasattr(frappe, 'session'):
-                    self.logger.debug(
-                        f"Request completed: user={frappe.session.user}, sid={frappe.session.sid} [request_id={getattr(g, 'request_id', 'unknown')}]")
+                        try:
+                            frappe.db.commit()
+                        except Exception:
+                            frappe.db.rollback()
 
                 if hasattr(g, 'request_id'):
                     response.headers['X-Request-ID'] = g.request_id
@@ -301,10 +441,6 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
 
         @self.flask_app.errorhandler(Exception)
         def handle_exception(e):
-            """
-            Global error handler: pass through HTTPException, otherwise log full
-            traceback and return JSON 500 with optional details in debug mode.
-            """
             if isinstance(e, HTTPException):
                 return e
 
@@ -319,66 +455,6 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
                 "details": traceback.format_exc() if self.flask_app.debug or os.getenv('DEBUG') == '1' else None
             }), 500
 
-    def setup_frappe_context(self):
-        """
-        Initialize Frappe for each request/thread. Only runs full init when
-        frappe.local.site is not set (first request or new thread). Order matters:
-        patch app resolution -> init -> filter module maps -> connect ->
-        sync service doctypes -> patch hooks.
-        """
-        needs_init = False
-        try:
-            needs_init = not hasattr(frappe, 'local') or not hasattr(
-                frappe.local, 'site') or not frappe.local.site
-        except (AttributeError, RuntimeError):
-            needs_init = True
-
-        if needs_init:
-            try:
-                self._patch_app_resolution()
-                frappe.init(site=self.frappe_site, sites_path=self.sites_path)
-                self._filter_module_maps()
-
-                self._patch_controller_resolution()
-
-                if self.db_host:
-                    frappe.local.conf.db_host = self.db_host
-                    self.logger.info(f"Overriding DB host to: {self.db_host}")
-
-                frappe.connect(set_admin_as_user=False)
-
-                self._sync_service_doctypes()
-
-                if hasattr(frappe, 'session'):
-                    frappe.session.user = 'Guest'
-                    frappe.session.sid = None
-                    self.logger.debug(
-                        "Initialized session as Guest (will be set after validation)")
-
-                self._patch_hooks_resolution()
-            except Exception as e:
-                self.logger.error(
-                    "Frappe init/connect failed: %s. Returning 503.",
-                    e,
-                    exc_info=True,
-                )
-                return jsonify({
-                    "status": "error",
-                    "message": "Service temporarily unavailable. Framework initialization failed.",
-                    "type": type(e).__name__,
-                    "code": 503,
-                }), 503
-
-        try:
-            frappe.local.form_dict = frappe._dict()
-            frappe.local.request_ip = request.remote_addr
-        except Exception:
-            pass
-
-        g._frappe_rolled_back = False
-
-        g.request_id = request.headers.get('X-Request-ID', str(uuid.uuid4()))
-        self.logger.info(f"Request started: {request.method} {request.path} [request_id={g.request_id}]")
 
     def _register_built_in_routes(self):
         """
@@ -388,10 +464,13 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
 
         @self.flask_app.route('/health', methods=['GET'])
         def health():
+            import datetime
             return jsonify({
                 "status": "healthy",
                 "service": self.name,
-                "site": self.frappe_site
+                "site": self.frappe_site,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "database": "connected"
             })
 
     def secure_route(self, rule, **options):
@@ -539,6 +618,10 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         """
         return frappe.db
 
+    def __call__(self, environ, start_response):
+        """WSGI entry point so Gunicorn can use SERVICE_APP (e.g. server:app) directly."""
+        return self.flask_app(environ, start_response)
+
     def run(self, **kwargs):
         """
         Start the Flask development server. Ensures site_config.json exists via
@@ -553,12 +636,6 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         self.logger.info(f"Central Site: {self.central_site_url}")
         self.logger.info(f"Port: {self.port}")
         self.logger.info("=" * 60)
-
-        try:
-            create_site_config()
-            self.logger.info("Checked/Created site_config.json automatically.")
-        except Exception as e:
-            self.logger.error(f"Failed to automate site_config.json: {e}")
 
         run_args = {
             'host': kwargs.pop('host', '0.0.0.0'),

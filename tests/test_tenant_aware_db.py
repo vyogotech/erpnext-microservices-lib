@@ -316,20 +316,16 @@ class TestGetDocHooksErrorHandling:
     def test_get_doc_hooks_returns_empty_on_exception(self):
         """If original_get_doc_hooks raises, return {} instead of crashing."""
         from frappe_microservice.core import MicroserviceApp
-        from tests.test_microservice_app import _reset_isolation_guard, _reset_hooks_patch_guard
+        from tests.test_microservice_app import _reset_microservice_guards
 
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
-        app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
+        _reset_microservice_guards()
 
         def exploding_get_doc_hooks():
             raise RuntimeError("hooks DB table missing")
 
-        with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app._patch_app_resolution()
-
         frappe.get_doc_hooks = exploding_get_doc_hooks
-        app._patch_hooks_resolution()
+        with patch("frappe.get_all_apps", return_value=["frappe"]):
+            app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
 
         result = frappe.get_doc_hooks()
         assert result == {}
@@ -337,18 +333,13 @@ class TestGetDocHooksErrorHandling:
     def test_get_doc_hooks_handles_non_dict_return(self):
         """If original returns non-dict, return {} safely."""
         from frappe_microservice.core import MicroserviceApp
-        from tests.test_microservice_app import _reset_isolation_guard, _reset_hooks_patch_guard
+        from tests.test_microservice_app import _reset_microservice_guards
 
-        _reset_isolation_guard()
-        _reset_hooks_patch_guard()
-        app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
-
+        _reset_microservice_guards()
         frappe.get_doc_hooks = MagicMock(return_value="not-a-dict")
 
         with patch("frappe.get_all_apps", return_value=["frappe"]):
-            app._patch_app_resolution()
-
-        app._patch_hooks_resolution()
+            app = MicroserviceApp("test-service", load_framework_hooks=["frappe"])
 
         result = frappe.get_doc_hooks()
         assert result == {}

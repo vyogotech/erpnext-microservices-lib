@@ -29,10 +29,13 @@ RUN pip install --no-cache-dir git+https://github.com/frappe/frappe.git@${FRAPPE
     find /opt/venv/lib/python3.14/site-packages/erpnext/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
     rm -rf /opt/venv/lib/python3.14/site-packages/frappe/public/build && \
     rm -rf /opt/venv/lib/python3.14/site-packages/erpnext/public/build
+# Patch Frappe: bundled_asset() must handle get_assets_json() returning None (e.g. headless/microservice)
+RUN sed -i 's/bundled_assets = get_assets_json()/bundled_assets = get_assets_json() or {}/' /opt/venv/lib/python3.14/site-packages/frappe/utils/jinja_globals.py
 # Install the microservice library
 COPY . /tmp/frappe-microservice-lib
 RUN pip install --no-cache-dir /tmp/frappe-microservice-lib && \
     pip install --no-cache-dir \
+    gunicorn>=22.0 \
     pyjwt==2.8.0 \
     requests==2.32.0 \
     redis==7.2.1 \
@@ -79,7 +82,7 @@ COPY --from=builder /app/dev.localhost /app/dev.localhost
 COPY --from=builder /logs /logs
 
 # Fix permissions to allow non-root users (e.g., in OpenShift/Kubernetes) to write logs and site configs
-RUN chmod -R 777 /app /logs
+RUN mkdir -p /app/logs && chmod -R 777 /app /logs
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH" \

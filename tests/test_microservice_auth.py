@@ -249,23 +249,27 @@ class TestRequestCorrelation:
                 return app
     
     def test_request_id_generated(self, app):
-        """Test request ID is generated if not provided"""
-        with app.flask_app.test_request_context('/health'):
-            # Trigger before_request
-            app.flask_app.preprocess_request()
-            
-            assert hasattr(g, 'request_id')
-            assert len(g.request_id) > 0
-    
+        """Test request ID is auto-generated for non-skip-path requests."""
+        # /health is in _SKIP_PATHS and never sets g.request_id by design.
+        # Use a different path so before_request runs normally.
+        with patch.object(app, '_restore_frappe_local'):
+            with app.flask_app.test_request_context('/api/test'):
+                app.flask_app.preprocess_request()
+
+                assert hasattr(g, 'request_id')
+                assert len(g.request_id) > 0
+
     def test_request_id_propagated(self, app):
-        """Test request ID is propagated from header"""
+        """Test request ID is echoed from the X-Request-ID request header."""
         request_id = str(uuid.uuid4())
-        
-        with app.flask_app.test_request_context('/health', headers={'X-Request-ID': request_id}):
-            # Trigger before_request
-            app.flask_app.preprocess_request()
-            
-            assert g.request_id == request_id
+
+        with patch.object(app, '_restore_frappe_local'):
+            with app.flask_app.test_request_context(
+                '/api/test', headers={'X-Request-ID': request_id}
+            ):
+                app.flask_app.preprocess_request()
+
+                assert g.request_id == request_id
 
 
 class TestRollbackTracking:

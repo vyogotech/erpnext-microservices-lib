@@ -1,6 +1,14 @@
 from unittest.mock import MagicMock, patch
 import sys
 
+
+class _dict(dict):
+    """Minimal stand-in for frappe._dict (dict with attribute access)."""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+
 # Mock frappe BEFORE importing any modules that use it
 mock_frappe = MagicMock()
 mock_frappe.PermissionError = type('PermissionError', (Exception,), {'__module__': 'frappe'})
@@ -8,13 +16,27 @@ mock_frappe.DoesNotExistError = type('DoesNotExistError', (Exception,), {'__modu
 mock_frappe.ValidationError = type('ValidationError', (Exception,), {'__module__': 'frappe'})
 mock_frappe.AuthenticationError = type('AuthenticationError', (Exception,), {'__module__': 'frappe'})
 mock_frappe.LinkValidationError = type('LinkValidationError', (Exception,), {'__module__': 'frappe'})
-mock_frappe._dict = dict
+mock_frappe._dict = _dict
 mock_frappe.local = MagicMock()
 mock_frappe.session = MagicMock()
 
-# Ensure name 'frappe' is in sys.modules
+# Ensure name 'frappe' and its submodules are in sys.modules
 sys.modules['frappe'] = mock_frappe
-# central.py imports FrappeClient from frappe.frappeclient; mock it so BDD runs without Frappe installed
+
+# app.py imports from frappe.utils.local
+mock_utils = MagicMock()
+mock_utils_local = MagicMock()
+sys.modules['frappe.utils'] = mock_utils
+sys.modules['frappe.utils.local'] = mock_utils_local
+
+# isolation.py lazy-imports from frappe.core.doctype; app.py patches frappe.core.doctype.version
+mock_core = MagicMock()
+sys.modules['frappe.core'] = mock_core
+sys.modules['frappe.core.doctype'] = MagicMock()
+sys.modules['frappe.core.doctype.version'] = MagicMock()
+sys.modules['frappe.core.doctype.version.version'] = MagicMock()
+
+# central.py imports FrappeClient from frappe.frappeclient
 mock_frappeclient = MagicMock()
 mock_frappeclient.FrappeClient = MagicMock()
 sys.modules['frappe.frappeclient'] = mock_frappeclient

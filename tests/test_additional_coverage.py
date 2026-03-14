@@ -7,7 +7,7 @@ import frappe
 from flask import g
 
 from frappe_microservice.core import get_user_tenant_id, TenantAwareDB, MicroserviceApp
-from frappe_microservice.entrypoint import create_site_config, run_app
+from frappe_microservice.entrypoint import create_site_config, main
 from frappe_microservice.controller import DocumentController, ControllerRegistry
 
 
@@ -192,7 +192,14 @@ def test_create_site_config_writes_file(tmp_path, monkeypatch):
     monkeypatch.setenv("DB_HOST", "db")
     monkeypatch.setenv("DB_NAME", "testdb")
 
-    config = create_site_config()
+    # Setting frappe.installer to None in sys.modules causes
+    # "from frappe.installer import make_site_config" to raise ImportError,
+    # which triggers _write_config_fallback — the only path that actually
+    # writes the JSON file (the MagicMock make_site_config does nothing).
+    with patch.dict("sys.modules", {"frappe.installer": None}), \
+         patch("frappe_microservice.site_config._sync_encryption_key",
+               side_effect=lambda c, _: c):
+        config = create_site_config()
 
     assert config["db_host"] == "db"
     assert config["db_name"] == "testdb"
@@ -214,15 +221,24 @@ def test_create_site_config_permission_fallback(monkeypatch, tmp_path):
     assert config["db_name"] == "name"
 
 
-def test_run_app_invokes_app_run(monkeypatch):
-    mock_app = MagicMock()
+def test_main_execs_gunicorn(monkeypatch):
+    """main() must call create_site_config then exec Gunicorn with correct flags."""
     monkeypatch.setenv("PORT", "9999")
-    monkeypatch.setenv("HOST", "127.0.0.1")
+    monkeypatch.setenv("GUNICORN_WORKERS", "2")
+    monkeypatch.setenv("SERVICE_APP", "server:app")
+    monkeypatch.setenv("SERVICE_PATH", "/tmp/svc")
 
-    with patch("frappe_microservice.entrypoint.create_site_config") as mock_create:
-        run_app(mock_app)
+    with patch("frappe_microservice.entrypoint.create_site_config") as mock_create, \
+         patch("os.execvpe") as mock_exec:
+        main()
         mock_create.assert_called_once()
-        mock_app.run.assert_called_once()
+        mock_exec.assert_called_once()
+        args = mock_exec.call_args[0]  # (path, argv, env)
+        argv = args[1]
+        assert "--bind=0.0.0.0:9999" in argv
+        assert "--workers=2" in argv
+        assert "server:app" in argv
+        assert "--worker-class=sync" in argv
 
 
 def test_microservice_app_health_route():
@@ -345,8 +361,9 @@ def test_microservice_app_isolate_apps_filters_hooks():
         }
 
     # Reset guard to allow testing isolation logic anew
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     with patch("frappe.get_all_apps", return_value=["frappe", "erpnext", "test_service"]):
         app._patch_app_resolution()
@@ -364,12 +381,12 @@ def test_microservice_app_isolate_apps_filters_hooks():
 
 
 def test_microservice_app_run_calls_flask_run():
+    # app.run() is the dev-server fallback; create_site_config is now handled
+    # by the Gunicorn entrypoint (main()), not by app.run() itself.
     app = MicroserviceApp("test-service", central_site_url="http://central")
-    with patch("frappe_microservice.app.create_site_config") as mock_create:
-        with patch.object(app.flask_app, "run") as mock_run:
-            app.run(port=5050)
-            mock_create.assert_called_once()
-            mock_run.assert_called_once()
+    with patch.object(app.flask_app, "run") as mock_run:
+        app.run(port=5050)
+        mock_run.assert_called_once_with(host="0.0.0.0", port=5050, debug=False)
 
 
 def test_microservice_app_get_current_tenant_id_custom():
@@ -395,8 +412,9 @@ def test_microservice_get_installed_apps_filters_to_allowed():
     app = MicroserviceApp("test-service")
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     # apps.txt has frappe, erpnext, test_service but load_framework_hooks
     # defaults to ['frappe', 'erpnext'], so all three should be included
@@ -416,8 +434,9 @@ def test_patch_app_resolution_no_framework_hooks():
     assert app.load_framework_hooks == []
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     # apps.txt has frappe, otherapp, test_service
     with patch("frappe.get_all_apps",
@@ -484,8 +503,9 @@ def test_microservice_get_attr_isolation_enforcement():
     app = MicroserviceApp("test-service", load_framework_hooks=['frappe'])
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     with patch("frappe.get_all_apps", return_value=["frappe"]):
         app._patch_app_resolution()
@@ -560,34 +580,34 @@ def test_secure_route_guest_rejection():
 
 
 def test_frappe_context_middleware():
-    app = MicroserviceApp("test-service")
+    """Verify new per-worker Frappe lifecycle:
+    - frappe.init is called once at startup (__init__), not per-request.
+    - /health (a _SKIP_PATH) never triggers before_request Frappe ops.
+    """
+    with patch("frappe.init") as mock_init_startup:
+        app = MicroserviceApp("test-service")
+        # init is called during _initialize_frappe at construction time
+        mock_init_startup.assert_called()
+
     app.flask_app.testing = True
     client = app.flask_app.test_client()
-    
-    with patch("frappe.init") as mock_init, \
-         patch("frappe.connect") as mock_connect, \
-         patch("frappe.db.commit") as mock_commit:
-        
-        # Trigger before_request
+
+    with patch("frappe.init") as mock_init_req, \
+         patch("frappe.connect") as mock_connect:
         response = client.get("/health")
         assert response.status_code == 200
-        
-        # Verify init and connect were called (assuming needs_init was True)
-        # Force needs_init by clearing frappe.local.site
-        if hasattr(frappe, 'local'):
-             frappe.local.site = None
-             
-        response = client.get("/health")
-        mock_init.assert_called()
-        mock_connect.assert_called()
+        # /health is in _SKIP_PATHS — no Frappe context per-request
+        mock_init_req.assert_not_called()
+        mock_connect.assert_not_called()
 
 
 def test_get_doc_hooks_filtering():
     app = MicroserviceApp("test-service", load_framework_hooks=['frappe'])
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
     with patch("frappe.get_all_apps", return_value=["frappe"]):
         app._patch_app_resolution()
@@ -621,15 +641,15 @@ def test_microservice_get_installed_apps_exception():
     app = MicroserviceApp("test-service")
 
     # Reset guard
-    if hasattr(frappe, "_microservice_isolation_applied"):
-        delattr(frappe, "_microservice_isolation_applied")
+    for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched",
+                 "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+        if hasattr(frappe, flag):
+            delattr(frappe, flag)
 
-    # When get_all_apps fails (filesystem issue), should fall back gracefully
     with patch("frappe.get_all_apps", side_effect=Exception("apps.txt missing")):
         app._patch_app_resolution()
 
         installed = frappe.get_installed_apps()
-        # Should still include the service app and frappe
         assert "test_service" in installed
         assert "frappe" in installed
 
@@ -641,11 +661,21 @@ def test_otel_import_error_logging():
 
 
 def test_middleware_request_id_header():
+    """/health is in _SKIP_PATHS so after_request is bypassed and X-Request-ID
+    is never echoed. Use a non-skip-path route to test the header passthrough."""
+    from flask import jsonify
     app = MicroserviceApp("test-service")
+
+    @app.flask_app.route("/test-echo")
+    def _echo():
+        return jsonify({"ok": True})
+
     app.flask_app.testing = True
     client = app.flask_app.test_client()
-    
-    response = client.get("/health", headers={"X-Request-ID": "test-req-123"})
+
+    # Stub out the real DB restore so the unit test doesn't need a live DB.
+    with patch.object(app, "_restore_frappe_local"):
+        response = client.get("/test-echo", headers={"X-Request-ID": "test-req-123"})
     assert response.status_code == 200
     assert response.headers.get("X-Request-ID") == "test-req-123"
 

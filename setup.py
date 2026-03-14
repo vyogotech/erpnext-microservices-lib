@@ -33,6 +33,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "flask>=2.0.0",
+        "gunicorn>=22.0",
         "requests>=2.25.0",
         "opentelemetry-api",
         "opentelemetry-sdk",

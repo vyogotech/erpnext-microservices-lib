@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.3.1] - 2026-03-13
+
+### Fixed
+- **DocType sync no longer destabilises the central site** (`isolation.py`).
+  Two-part fix for the `AttributeError: module 'frappe.integrations.oauth2' has no attribute 'set_cors_for_privileged_requests'` (and similar) errors on the central site after a service restart:
+  - **`_import_doc_without_cache_flush`**: Temporarily replaces `frappe.cache_manager.reset_metadata_version` with a no-op during `import_doc`. DocType save previously called `frappe.clear_cache(doctype=…)` → `reset_metadata_version()`, which bumped a hash in **shared Redis**. The central site detected the version change on its next request and reloaded all hooks — tripping over any hook pointing to a removed/renamed function in the installed Frappe version.
+  - **`_ensure_module_def`**: Inserts a `Module Def` record (if absent) for the service module before DocType import, attributing the DocType to the service app instead of defaulting to `"frappe"`. This prevents the central site from trying to load controller classes that only exist inside the service container.
+
+## [1.3.0] - 2026-03-13
+
+### Changed
+- **Gunicorn entrypoint**: `frappe_microservice.entrypoint.main()` now execs Gunicorn directly (Frappe-style `os.execvpe`) with `--worker-class=sync --worker-tmp-dir=/dev/shm`. No more Flask dev server in production containers. Configurable via `PORT` (default `8000`), `GUNICORN_WORKERS` (default `4`), `GUNICORN_TIMEOUT` (default `120`).
+- **`MicroserviceApp` is WSGI-callable**: Added `__call__(environ, start_response)` so Gunicorn can use `SERVICE_APP` (e.g. `server:app`) pointing at the `MicroserviceApp` instance directly.
+- **`gunicorn>=22.0` added** to `setup.py` install_requires and `Containerfile` pip step.
+
+### Fixed
+- **DB connection leak eliminated**: Frappe context and DB connection are now managed per-worker, not per-request.
+  - `_initialize_frappe()` (called once at `__init__` time) runs `frappe.init()` and all patches; captures `frappe.local` dict into `self._frappe_local_base` without opening a DB connection.
+  - `_restore_frappe_local()` (called in `before_request`) restores the ContextVar dict and lazily opens the DB on the first request per worker (`frappe.local.db` stored in `self._db_obj`). Subsequent requests inject `frappe.local.db = self._db_obj` without reconnecting.
+  - `self._db_obj = frappe.local.db` (the real DB instance) instead of `frappe.db` (a `LocalProxy`) prevents `RecursionError` on ping.
+  - `ping()` called without keyword args to avoid `TypeError: ping() takes no keyword arguments`.
+- **`/health` and `/socket.io/` skip DB entirely**: Both `before_request` and `after_request` return early for these paths — no Frappe context, no DB, no reconnects.
+- **`after_request` rollback on commit failure**: `frappe.db.commit()` wrapped in `try/except`; calls `frappe.db.rollback()` on failure so the connection is left clean for the next request.
+- **`/app/logs` directory created in Containerfile**: Prevents `FileNotFoundError` for `database.log` when Gunicorn workers start under a non-root user.
+
+### Added
+- **Unit tests** (`tests/test_db_connection_reuse.py`): 12 tests covering skip-paths, connect-once, DB object identity, reconnect-on-ping-failure, WSGI callable, Gunicorn entrypoint flags, and after_request rollback.
+- **`conftest.py`**: Extended to stub `frappe.utils.local._contextvar` (new import) so the full test suite runs on hosts without real Frappe installed.
+
+## [1.2.0] - 2026-03-10
+
+### Fixed
+- **Microservice Initialization Order**: Swapped initialization steps in `app.py` to call `_patch_hooks_resolution()` before `_sync_service_doctypes()`. This prevents `ModuleNotFoundError` for apps that don't have a `hooks.py` file.
+- **Module Resolution (In-Memory)**: Updated `isolation.py` to register module-to-app mappings in-memory BEFORE DocType syncing, avoiding the need for `Module Def` records in the database for microservices.
+- **Transaction Safety**: Added explicit `frappe.db.rollback()` on DocType sync failure to prevent transaction leakage (`ImplicitCommitError`) in subsequent requests on the same thread.
+- **Thread Safety**: Verified `threading.Lock` usage in `setup_frappe_context` for safe concurrent cold starts.
+
 ## [1.1.0] - 2026-03-09
 
 ### Added

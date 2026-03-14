@@ -57,8 +57,9 @@ class TestDuplicateCodeRemoval:
         app = MicroserviceApp("test-service", central_site_url="http://central")
 
         # Reset guard
-        if hasattr(frappe, "_microservice_isolation_applied"):
-            delattr(frappe, "_microservice_isolation_applied")
+        for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
+            if hasattr(frappe, flag):
+                delattr(frappe, flag)
 
         with patch("frappe.get_all_apps",
                     return_value=["frappe", "erpnext", "test_service"]):
@@ -101,10 +102,11 @@ class TestConfigurationGeneration:
         assert hasattr(utils, 'generate_site_config'), \
             "utils should have generate_site_config"
         
-        # If it's a re-export, the function should be from entrypoint module
+        # If it's a re-export, the function should be from entrypoint or site_config
         if hasattr(utils.generate_site_config, '__module__'):
-            assert 'entrypoint' in utils.generate_site_config.__module__, \
-                "generate_site_config should be re-exported from entrypoint"
+            mod = utils.generate_site_config.__module__
+            assert 'entrypoint' in mod or 'site_config' in mod, \
+                "generate_site_config should be re-exported from entrypoint or site_config"
 
 
 class TestSignupServiceSecurity:
