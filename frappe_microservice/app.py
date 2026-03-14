@@ -29,6 +29,7 @@ from frappe_microservice.isolation import IsolationMixin
 from frappe_microservice.auth import AuthMixin
 from frappe_microservice.resources import ResourceMixin
 from frappe_microservice.central import CentralSiteClient
+from frappe_microservice.background import BackgroundTaskMixin
 
 try:
     from flasgger import Swagger
@@ -41,7 +42,7 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 
-class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
+class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMixin):
     """
     Base class for Frappe microservices
 
@@ -180,6 +181,7 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         self._frappe_local_base = None
 
         self._initialize_frappe()
+        self._maybe_start_rq_worker()
 
     @property
     def central(self):

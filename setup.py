@@ -43,6 +43,7 @@ setup(
         "pyjwt>=2.4.0",
         "redis>=4.0.0",
         "pymysql>=1.0.0",
+        "rq>=1.16.0",
     ],
     extras_require={
         "dev": [
