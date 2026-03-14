@@ -17,6 +17,8 @@ import os
 import logging
 import traceback
 import uuid
+import threading
+import copy
 
 import frappe
 from frappe.utils.local import _contextvar
@@ -617,6 +619,45 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin):
         will apply tenant filtering yourself.
         """
         return frappe.db
+
+    def run_background_task(self, func, *args, **kwargs):
+        """
+        Executes a function in a background thread with the Frappe context restored.
+        This ensures that thread-local proxies like frappe.db and frappe.qb are 
+        properly bound.
+        """
+        base_ctx = self._frappe_local_base
+        
+        def _task_wrapper():
+            with self.flask_app.app_context():
+                try:
+                    # Restore Frappe context
+                    if base_ctx:
+                        _contextvar.set(copy.copy(base_ctx))
+                    
+                    # Establish database connection for this thread
+                    frappe.connect()
+                    
+                    # Execute the task
+                    func(*args, **kwargs)
+                    
+                    # Commit any changes
+                    frappe.db.commit()
+                except Exception as e:
+                    self.logger.error(f"Background task failed: {e}", exc_info=True)
+                    try:
+                        frappe.db.rollback()
+                    except Exception:
+                        pass
+                finally:
+                    try:
+                        frappe.destroy()
+                    except Exception:
+                        pass
+
+        thread = threading.Thread(target=_task_wrapper, daemon=True)
+        thread.start()
+        return thread
 
     def __call__(self, environ, start_response):
         """WSGI entry point so Gunicorn can use SERVICE_APP (e.g. server:app) directly."""
