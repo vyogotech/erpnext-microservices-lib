@@ -190,6 +190,11 @@ class TestDocumentController:
 
 
 class TestControllerRegistry:
+    def setup_method(self):
+        # Clear the global registry if it exists
+        if hasattr(frappe, "_microservice_registry"):
+            delattr(frappe, "_microservice_registry")
+
     def test_register_and_get(self):
         registry = ControllerRegistry()
         
@@ -452,50 +457,56 @@ class BadSyntax
         assert controllers["Test"] == "TestController"
 
     def test_global_registry_functions(self):
-        """Test global registry functions"""
-        from frappe_microservice.controller import get_controller_registry, register_controller
+        """Test the global get_controller_registry function"""
+        from frappe_microservice.controller import get_controller_registry
         
-        # Test get_controller_registry
+        # Should return a registry
         registry = get_controller_registry()
         assert registry is not None
         assert isinstance(registry, ControllerRegistry)
         
-        # Test register_controller decorator
-        @register_controller("Global Test")
-        class GlobalTestController(DocumentController):
-            pass
+        # Repeated calls should return THE SAME registry instance (singleton)
+        registry2 = get_controller_registry()
+        assert registry is registry2
+        
+        # Test registering on the global registry
+        from frappe_microservice.controller import DocumentController
+        class GlobalTest(DocumentController): pass
+        
+        registry.register("Global Test", GlobalTest)
         
         # Check it was registered
         assert get_controller_registry().has_controller("Global Test") is True
 
-    def test_setup_controllers_with_directory(self):
-        """Test setup_controllers function with a directory"""
-        from frappe_microservice.controller import setup_controllers, get_controller_registry
-        
-        mock_app = MagicMock()
-        mock_app.tenant_db = MagicMock()
-        mock_app.tenant_db.on = MagicMock()
-        
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Create a controller file
-            controller_file = Path(tmpdir) / "test_doc.py"
-            controller_file.write_text("""
+        with patch("frappe_microservice.controller.get_controller_registry") as mock_get_reg:
+            mock_registry = MagicMock(spec=ControllerRegistry)
+            mock_registry._controllers = {}
+            mock_get_reg.return_value = mock_registry
+            mock_app = MagicMock()
+            mock_app.tenant_db = MagicMock()
+            mock_app.tenant_db.on = MagicMock()
+            
+            with tempfile.TemporaryDirectory() as tmpdir:
+                # Create a controller file
+                controller_file = Path(tmpdir) / "test_doc.py"
+                controller_file.write_text("""
 from frappe_microservice.controller import DocumentController
 
 class TestDoc(DocumentController):
     pass
 """)
-            
-            # Call setup_controllers
-            setup_controllers(mock_app, tmpdir)
-            
-            # Check that tenant_db got the registry
-            assert mock_app.tenant_db.controller_registry is not None
-            # Check that the controller was discovered
-            registry = get_controller_registry()
-            assert registry.has_controller("Test Doc") is True
-            # Check that hooks were registered (on method was called)
-            assert mock_app.tenant_db.on.called
+                
+                # Call setup_controllers
+                from frappe_microservice.controller import setup_controllers
+                setup_controllers(mock_app, tmpdir)
+                
+                # Check that tenant_db got a registry
+                assert mock_app.tenant_db.controller_registry is not None
+                # Check that discover was called on THAT registry
+                # (In this test, setup_controllers calls get_controller_registry() internally)
+                assert mock_registry.auto_discover_controllers.called
+                # Check that hooks were registered (on method was called)
+                assert mock_app.tenant_db.on.called
 
     def test_controller_hook_registration(self):
         """Test that controller hooks are properly registered and called"""

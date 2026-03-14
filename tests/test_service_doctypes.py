@@ -220,6 +220,8 @@ class TestControllerResolution:
         for flag in ("_microservice_isolation_applied", "_microservice_load_app_hooks_patched", "_microservice_hooks_resolution_patched", "_microservice_controller_patched"):
             if hasattr(frappe, flag):
                 delattr(frappe, flag)
+        if hasattr(frappe, "_microservice_registry"):
+            delattr(frappe, "_microservice_registry")
 
     def test_fallback_to_base_document(self):
         """Cycle 9: service doctype falls back to base Document on ImportError."""
@@ -230,7 +232,9 @@ class TestControllerResolution:
         if hasattr(frappe, "_microservice_controller_patched"):
             delattr(frappe, "_microservice_controller_patched")
 
-        sentinel_document = type("Document", (), {})
+        # Mock SERVICE_DOCTYPES to include our test DT
+        with patch("frappe_microservice.isolation._SERVICE_DOCTYPES", {"Service DT"}):
+            sentinel_document = type("Document", (), {"__name__": "Document"})
 
         def raise_import(doctype):
             raise ImportError(f"No module for {doctype}")
@@ -238,10 +242,16 @@ class TestControllerResolution:
         frappe.model.base_document.import_controller = raise_import
         frappe.model.document.Document = sentinel_document
 
-        app._patch_controller_resolution()
+        # Reset the patch flag to ensure it actually runs the logic
+        if hasattr(frappe, "_microservice_controller_patched"):
+            delattr(frappe, "_microservice_controller_patched")
 
-        result = frappe.model.base_document.import_controller("Service DT")
-        assert result is sentinel_document
+        # Mock SERVICE_DOCTYPES to include our test DT
+        with patch("frappe_microservice.isolation._SERVICE_DOCTYPES", {"Service DT"}):
+            # Patch it again with the new list
+            app._patch_controller_resolution()
+            result = frappe.model.base_document.import_controller("Service DT")
+            assert result is sentinel_document
 
     def test_non_service_doctype_still_raises(self):
         """Cycle 11: non-service doctype ImportError propagates normally."""
@@ -290,7 +300,7 @@ class TestControllerResolution:
         app = MicroserviceApp("test-service")
         app._service_doctype_names = {"Service DT"}
 
-        sentinel = type("OriginalController", (), {})
+        sentinel = type("OriginalController", (), {"__name__": "OriginalController"})
 
         frappe.model.base_document.import_controller = lambda dt: sentinel
 
@@ -308,7 +318,7 @@ class TestControllerResolution:
 
         first_original = MagicMock(side_effect=ImportError("first"))
         frappe.model.base_document.import_controller = first_original
-        frappe.model.document.Document = "FirstDocument"
+        frappe.model.document.Document = type("FirstDocument", (), {"__name__": "FirstDocument"})
 
         app._patch_controller_resolution()
 
@@ -316,7 +326,7 @@ class TestControllerResolution:
         app._patch_controller_resolution()
 
         result = frappe.model.base_document.import_controller("DT1")
-        assert result == "FirstDocument"
+        assert result.__name__ == "FirstDocument"
 
 
 class TestSetupFrappeContextWiring:

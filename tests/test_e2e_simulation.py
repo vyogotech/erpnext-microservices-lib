@@ -463,28 +463,27 @@ class TestHooksContamination:
         non-allowed apps must raise AttributeError to prevent ImportError.
         """
         _reset_isolation()
-        original_attr = MagicMock(return_value=lambda: None)
-        frappe.get_attr = original_attr
+        mock_attr = MagicMock(return_value=lambda: None)
+        with patch("frappe.get_attr", mock_attr):
+            with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+                app = MicroserviceApp(
+                    "signup-service",
+                    load_framework_hooks=['frappe', 'erpnext'],
+                )
 
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app = MicroserviceApp(
-                "signup-service",
-                load_framework_hooks=['frappe', 'erpnext'],
-            )
+                result = frappe.get_attr("frappe.utils.now")
+                assert result is not None
 
-        result = frappe.get_attr("frappe.utils.now")
-        assert result is not None
+                result = frappe.get_attr("erpnext.accounts.utils.get_balance")
+                assert result is not None
 
-        result = frappe.get_attr("erpnext.accounts.utils.get_balance")
-        assert result is not None
-
-        for blocked_path in [
-            "hrms.hr.utils.on_user_create",
-            "saas_platform.billing.hooks.check_sub",
-            "insights.insights_core.hooks.track",
-        ]:
-            with pytest.raises(AttributeError, match="non-installed app"):
-                frappe.get_attr(blocked_path)
+                for blocked_path in [
+                    "hrms.hr.utils.on_user_create",
+                    "saas_platform.billing.hooks.check_sub",
+                    "insights.insights_core.hooks.track",
+                ]:
+                    with pytest.raises(AttributeError, match="non-installed app"):
+                        frappe.get_attr(blocked_path)
 
     def test_hooks_with_no_dot_in_handler_pass_through(self):
         """Handlers without dots (edge case) should pass through unfiltered."""
@@ -741,45 +740,45 @@ class TestCompleteSignupServiceScenario:
         _reset_isolation()
 
         import_calls = []
-        original_get_attr = MagicMock(side_effect=lambda m: import_calls.append(m))
-        frappe.get_attr = original_get_attr
+        mock_get_attr = MagicMock(side_effect=lambda m: import_calls.append(m))
+        
+        with patch("frappe.get_attr", mock_get_attr):
+            def central_doc_hooks():
+                return {
+                    "User": {
+                        "after_insert": [
+                            "frappe.core.doctype.user.user.on_new_user",
+                            "hrms.hr.utils.on_user_create",
+                            "saas_platform.tenant_manager.hooks.on_user_create",
+                        ],
+                    },
+                }
 
-        def central_doc_hooks():
-            return {
-                "User": {
-                    "after_insert": [
-                        "frappe.core.doctype.user.user.on_new_user",
-                        "hrms.hr.utils.on_user_create",
-                        "saas_platform.tenant_manager.hooks.on_user_create",
-                    ],
-                },
-            }
+            frappe.get_doc_hooks = central_doc_hooks
+            with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
+                app = MicroserviceApp(
+                    "signup-service",
+                    load_framework_hooks=['frappe', 'erpnext'],
+                )
 
-        frappe.get_doc_hooks = central_doc_hooks
-        with patch("frappe.get_all_apps", return_value=["frappe", "erpnext"]):
-            app = MicroserviceApp(
-                "signup-service",
-                load_framework_hooks=['frappe', 'erpnext'],
-            )
+            frappe.local.app_modules = deepcopy(CENTRAL_SITE_APP_MODULES)
+            frappe.local.module_app = deepcopy(CENTRAL_SITE_MODULE_APP)
+            app._filter_module_maps()
 
-        frappe.local.app_modules = deepcopy(CENTRAL_SITE_APP_MODULES)
-        frappe.local.module_app = deepcopy(CENTRAL_SITE_MODULE_APP)
-        app._filter_module_maps()
+            hooks = frappe.get_doc_hooks()
+            user_hooks = hooks.get("User", {}).get("after_insert", [])
 
-        hooks = frappe.get_doc_hooks()
-        user_hooks = hooks.get("User", {}).get("after_insert", [])
+            assert "hrms.hr.utils.on_user_create" not in user_hooks
+            assert "saas_platform.tenant_manager.hooks.on_user_create" not in user_hooks
+            assert "frappe.core.doctype.user.user.on_new_user" in user_hooks
 
-        assert "hrms.hr.utils.on_user_create" not in user_hooks
-        assert "saas_platform.tenant_manager.hooks.on_user_create" not in user_hooks
-        assert "frappe.core.doctype.user.user.on_new_user" in user_hooks
+            for hook in user_hooks:
+                frappe.get_attr(hook)
 
-        for hook in user_hooks:
-            frappe.get_attr(hook)
-
-        for called in import_calls:
-            app_name = called.split('.')[0]
-            assert app_name in ('frappe', 'erpnext', 'signup_service'), \
-                f"get_attr called for non-allowed app: {called}"
+            for called in import_calls:
+                app_name = called.split('.')[0]
+                assert app_name in ('frappe', 'erpnext', 'signup_service'), \
+                    f"get_attr called for non-allowed app: {called}"
 
     def test_production_scenario_with_hooks_and_module_maps_combined(self):
         """

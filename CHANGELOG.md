@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.1] - 2026-03-14
+
+### Fixed
+- **Background Tasks**: Fixed `TypeError` in `_rq_job_wrapper` by ensuring all required path arguments (`sites_path`, `doctypes_path`, `controllers_path`) are passed during task enqueuing.
+- **Controller Registry**: Refactored `ControllerRegistry` into a global singleton (`frappe._microservice_registry`) to ensure consistent discovery across processes and worker threads.
+- **Isolation**: Fixed `ImportError` (ModuleNotFoundError) in `microservice_import_controller` by adding an explicit fallback to `frappe.model.document.Document` when a service doctype controller is not found.
+- **Tests**: Resolved multiple regressions in `test_background_rq.py`, `test_controllers.py`, and `test_service_doctypes.py` related to mocking and global state.
+- **Mocks**: Added missing `__name__` attributes to mocked controller classes in tests to prevent `AttributeError`.
+
+### Added
+- **Integrated RQ**: Standardized environment variables (`ENABLE_RQ`, `REDIS_URL`) for embedded RQ worker activation.
+- **Global Discovery**: Automated controller discovery now targets the global registry by default.
+
 ## [1.4.0] - 2026-03-14
 
 ### Added

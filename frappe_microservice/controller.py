@@ -335,7 +335,7 @@ def register_controller(doctype: str):
                 pass
     """
     def wrapper(cls):
-        _registry.register(doctype, cls)
+        get_controller_registry().register(doctype, cls)
         return cls
     return wrapper
 
@@ -363,16 +363,17 @@ def setup_controllers(app, controllers_directory: str = None):
         app = create_microservice("my-service")
         setup_controllers(app, "./controllers")
     """
+    registry = get_controller_registry()
     if controllers_directory and os.path.exists(controllers_directory):
-        _registry.auto_discover_controllers(controllers_directory)
+        registry.auto_discover_controllers(controllers_directory)
     
     # Hook the registry into TenantAwareDB
-    app.tenant_db.controller_registry = _registry
+    app.tenant_db.controller_registry = registry
     
     # Register hooks to call controller methods
     _register_controller_hooks(app.tenant_db)
     
-    logger.info(f"✅ Controllers setup complete. Registered: {list(_registry._controllers.keys())}")
+    logger.info(f"✅ Controllers setup complete. Registered: {list(registry._controllers.keys())}")
 
 
 def _register_controller_hooks(tenant_db):
