@@ -27,6 +27,7 @@ def _build_config_from_env(
     """
     Build a site_config dict from args or env (DB_*, REDIS_*, etc.).
     Supports REDIS_QUEUE_HOST / REDIS_CACHE_HOST and REDIS_NAMESPACE.
+    Also reads ENCRYPTION_KEY env var to inject into the config when set.
     """
     resolved_redis_host = redis_host or os.getenv('REDIS_HOST', 'localhost')
     resolved_redis_port = int(redis_port or os.getenv('REDIS_PORT', '6379'))
@@ -49,6 +50,11 @@ def _build_config_from_env(
     }
     if resolved_redis_namespace:
         config['redis_namespace'] = resolved_redis_namespace
+
+    encryption_key = os.getenv('ENCRYPTION_KEY')
+    if encryption_key:
+        config['encryption_key'] = encryption_key
+
     return config
 
 
