@@ -40,7 +40,8 @@ class AuthMixin:
                 f'{self.central_site_url}/api/method/frappe.integrations.oauth2.openid_profile',
                 headers={
                     'Authorization': f'Bearer {access_token}',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'Host': getattr(self, 'frappe_site', '') or 'dev.localhost',
                 },
                 timeout=5
             )
@@ -75,6 +76,74 @@ class AuthMixin:
                 "code": 401
             }, 401)
 
+    def _validate_session_via_db(self, sid):
+        """
+        Fallback: validate SID directly against the shared tabSessions table.
+
+        Used when the Central Site call fails (different Redis, Host header issue,
+        or network error). Since all microservices share the same MariaDB, the
+        session created by auth-service is always visible here.
+
+        Returns (username, None) on success or (None, error_response) on failure.
+        """
+        try:
+            from frappe.utils import now, time_diff_in_seconds
+            from frappe.utils.data import add_to_date
+
+            # Default session expiry: 240 hours (Frappe default)
+            session_expiry = "240:00:00"
+            try:
+                session_expiry = frappe.db.get_single_value("System Settings", "session_expiry") or session_expiry
+            except Exception:
+                pass
+
+            parts = session_expiry.split(":")
+            expiry_seconds = (int(parts[0]) * 3600) + (int(parts[1]) * 60) + int(parts[2] if len(parts) > 2 else 0)
+            expired_threshold = add_to_date(now(), seconds=-expiry_seconds, as_string=True)
+
+            Sessions = frappe.qb.DocType("Sessions")
+            result = (
+                frappe.qb.from_(Sessions)
+                .select(Sessions.user, Sessions.sessiondata)
+                .where(Sessions.sid == sid)
+                .where(Sessions.lastupdate > expired_threshold)
+            ).run(as_dict=True)
+
+            if not result:
+                self.logger.info(f"DB session fallback - SID not found or expired: {sid[:8]}...")
+                return None, self._json_error_response({
+                    "status": "error",
+                    "message": "Session expired or invalid.",
+                    "type": "Unauthorized",
+                    "code": 401
+                }, 401)
+
+            username = result[0].get("user")
+            if not username or username == "Guest":
+                return None, self._json_error_response({
+                    "status": "error",
+                    "message": "Session expired or invalid.",
+                    "type": "Unauthorized",
+                    "code": 401
+                }, 401)
+
+            self.logger.info(f"DB session fallback - validated user: {username}")
+            frappe.set_user(username)
+            frappe.session.sid = sid
+            if hasattr(frappe, 'local') and hasattr(frappe.local, 'session'):
+                frappe.local.session.data = frappe._dict()
+
+            return username, None
+
+        except Exception as e:
+            self.logger.error(f"DB session fallback failed: {e}", exc_info=True)
+            return None, self._json_error_response({
+                "status": "error",
+                "message": "Authentication service error. Please try again later.",
+                "type": "AuthenticationError",
+                "code": 401
+            }, 401)
+
     def _validate_session(self):
         """
         Determine the current user from this request.
@@ -84,6 +153,7 @@ class AuthMixin:
              → treats caller as Administrator (service-to-service, no user session).
           2. Authorization: Bearer <token> → validated via Central Site OIDC.
           3. sid cookie → validated via Central Site get_logged_user.
+          4. sid cookie → fallback: direct DB lookup in shared tabSessions.
 
         Returns (username, None) on success or (None, error_response) on failure.
         """
@@ -127,12 +197,16 @@ class AuthMixin:
                     "code": 401
                 }, 401)
 
+            # ── 3. SID cookie → Central Site validation ───────────────────────────
             try:
                 response = http_requests.get(
                     f'{self.central_site_url}/api/method/frappe.auth.get_logged_user',
                     cookies=session_cookies,
                     timeout=5,
-                    headers={'Accept': 'application/json'}
+                    headers={
+                        'Accept': 'application/json',
+                        'Host': getattr(self, 'frappe_site', '') or 'dev.localhost',
+                    }
                 )
 
                 self.logger.debug(
@@ -157,29 +231,21 @@ class AuthMixin:
                         return username, None
                     else:
                         self.logger.info(
-                            "Session validation - user is Guest or invalid")
+                            "Session validation - Central Site returned Guest, trying DB fallback")
                 else:
                     self.logger.info(
-                        f"Session validation - Central Site returned {response.status_code}")
+                        f"Session validation - Central Site returned {response.status_code}, trying DB fallback")
 
             except http_requests.exceptions.RequestException as api_error:
-                self.logger.error(
-                    f"Session validation - API call failed: {api_error}")
+                self.logger.warning(
+                    f"Session validation - Central Site unreachable: {api_error}, trying DB fallback")
             except Exception as api_error:
-                self.logger.error(
-                    f"Session validation - API response error: {api_error}")
+                self.logger.warning(
+                    f"Session validation - Central Site error: {api_error}, trying DB fallback")
 
-            if hasattr(frappe, 'session'):
-                frappe.session.user = 'Guest'
-                frappe.session.sid = None
-                self.logger.debug("Cleared invalid session context")
-
-            return None, self._json_error_response({
-                "status": "error",
-                "message": f"Authentication required. Please login at Central Site: {self.central_site_url}/api/method/login",
-                "type": "Unauthorized",
-                "code": 401
-            }, 401)
+            # ── 4. Fallback: direct DB session lookup ─────────────────────────────
+            self.logger.info("Session validation - attempting direct DB fallback")
+            return self._validate_session_via_db(sid)
 
         except Exception as e:
             self.logger.error(f"Session validation error: {e}", exc_info=True)
