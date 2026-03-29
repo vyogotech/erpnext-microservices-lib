@@ -14,7 +14,7 @@ import MicroserviceApp) or keep using this module. __all__ defines the public su
 """
 
 from frappe_microservice.hooks import DocumentHooks                          # noqa: F401
-from frappe_microservice.tenant import NullContext, get_user_tenant_id, TenantAwareDB  # noqa: F401
+from frappe_microservice.tenant import NullContext, get_user_tenant_id, TenantAwareDB, patch_valid_dict_for_tenant_id  # noqa: F401
 from frappe_microservice.app import MicroserviceApp, create_microservice     # noqa: F401
 
 __all__ = [

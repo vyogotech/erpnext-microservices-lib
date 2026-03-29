@@ -24,7 +24,7 @@ import frappe
 from frappe.utils.local import _contextvar
 
 from frappe_microservice.site_config import create_site_config
-from frappe_microservice.tenant import TenantAwareDB, get_user_tenant_id
+from frappe_microservice.tenant import TenantAwareDB, get_user_tenant_id, patch_valid_dict_for_tenant_id
 from frappe_microservice.isolation import IsolationMixin
 from frappe_microservice.auth import AuthMixin
 from frappe_microservice.resources import ResourceMixin
@@ -339,6 +339,7 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
 
         self._patch_app_resolution()
         frappe.init(site=self.frappe_site, sites_path=self.sites_path)
+        patch_valid_dict_for_tenant_id()
         self._filter_module_maps()
         self._patch_controller_resolution()
         self._patch_hooks_resolution()

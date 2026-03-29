@@ -130,10 +130,9 @@ class TestTenantAwareDBInsert:
         get_tenant_id = MagicMock(return_value="test_tenant")
         return TenantAwareDB(get_tenant_id)
     
-    @patch('frappe.db.sql', create=True)
     @patch('frappe.get_doc', create=True)
     @patch('frappe.db.get_value', create=True)
-    def test_insert_doc_basic(self, mock_get_value, mock_get_doc, mock_sql, db):
+    def test_insert_doc_basic(self, mock_get_value, mock_get_doc, db):
         """Test basic document insertion with tenant_id"""
         mock_doc = MagicMock()
         mock_doc.name = "DOC-001"
@@ -149,20 +148,13 @@ class TestTenantAwareDBInsert:
         
         # Verify insert was called
         mock_doc.insert.assert_called_once()
-
-        # Verify raw SQL UPDATE stamps tenant_id after insert
-        mock_sql.assert_called_once()
-        sql_args = mock_sql.call_args
-        assert "UPDATE" in sql_args[0][0]
-        assert sql_args[0][1] == ("test_tenant", "DOC-001")
         
         # Verify post-insert verification
         mock_get_value.assert_called_once()
     
-    @patch('frappe.db.sql', create=True)
     @patch('frappe.get_doc', create=True)
     @patch('frappe.db.get_value', create=True)
-    def test_insert_doc_verification_disabled(self, mock_get_value, mock_get_doc, mock_sql):
+    def test_insert_doc_verification_disabled(self, mock_get_value, mock_get_doc):
         """Test insert with verification disabled (performance mode)"""
         get_tenant_id = MagicMock(return_value="test_tenant")
         db = TenantAwareDB(get_tenant_id, verify_tenant_on_insert=False)
@@ -172,17 +164,13 @@ class TestTenantAwareDBInsert:
         mock_get_doc.return_value = mock_doc
         
         db.insert_doc('Sales Order', {'customer': 'CUST-001'})
-
-        # SQL UPDATE still runs regardless of verify flag
-        mock_sql.assert_called_once()
         
         # Verification should be skipped
         mock_get_value.assert_not_called()
     
-    @patch('frappe.db.sql', create=True)
     @patch('frappe.get_doc', create=True)
     @patch('frappe.db.get_value', create=True)
-    def test_insert_doc_verification_mismatch(self, mock_get_value, mock_get_doc, mock_sql, db):
+    def test_insert_doc_verification_mismatch(self, mock_get_value, mock_get_doc, db):
         """Test error when saved tenant_id doesn't match"""
         mock_doc = MagicMock()
         mock_doc.name = "DOC-001"
@@ -451,6 +439,68 @@ class TestGetUserTenantIdEdgeCases:
             assert result is None
         finally:
             frappe.session = original_session
+
+
+class TestPatchValidDictForTenantId:
+    """Tests for the ORM-level get_valid_dict patch that injects tenant_id."""
+
+    def setup_method(self):
+        from frappe.model.base_document import BaseDocument
+        self._original = getattr(BaseDocument, '_tenant_valid_dict_patched', False)
+
+    def teardown_method(self):
+        from frappe.model.base_document import BaseDocument
+        BaseDocument._tenant_valid_dict_patched = self._original
+
+    def test_patch_is_idempotent(self):
+        """Calling patch_valid_dict_for_tenant_id twice must not stack wrappers."""
+        from frappe.model.base_document import BaseDocument
+        from frappe_microservice.tenant import patch_valid_dict_for_tenant_id
+
+        BaseDocument._tenant_valid_dict_patched = False
+        patch_valid_dict_for_tenant_id()
+        first_fn = BaseDocument.get_valid_dict
+        patch_valid_dict_for_tenant_id()
+        assert BaseDocument.get_valid_dict is first_fn
+
+    def test_patch_adds_tenant_id_to_valid_dict(self):
+        """After patching, get_valid_dict must include tenant_id when set on doc."""
+        from frappe.model.base_document import BaseDocument
+        from frappe_microservice.tenant import patch_valid_dict_for_tenant_id
+
+        BaseDocument._tenant_valid_dict_patched = False
+        original_fn = BaseDocument.get_valid_dict
+        BaseDocument.get_valid_dict = lambda self, *a, **kw: {"name": "DOC-001", "status": "Draft"}
+
+        try:
+            patch_valid_dict_for_tenant_id()
+
+            doc = MagicMock()
+            doc.tenant_id = "tenant-abc"
+            result = BaseDocument.get_valid_dict(doc)
+            assert result["tenant_id"] == "tenant-abc"
+            assert result["name"] == "DOC-001"
+        finally:
+            BaseDocument.get_valid_dict = original_fn
+
+    def test_patch_does_not_add_tenant_id_when_absent(self):
+        """When doc has no tenant_id, get_valid_dict is unchanged."""
+        from frappe.model.base_document import BaseDocument
+        from frappe_microservice.tenant import patch_valid_dict_for_tenant_id
+
+        BaseDocument._tenant_valid_dict_patched = False
+        original_fn = BaseDocument.get_valid_dict
+        BaseDocument.get_valid_dict = lambda self, *a, **kw: {"name": "DOC-001"}
+
+        try:
+            patch_valid_dict_for_tenant_id()
+
+            doc = MagicMock()
+            doc.tenant_id = None
+            result = BaseDocument.get_valid_dict(doc)
+            assert "tenant_id" not in result
+        finally:
+            BaseDocument.get_valid_dict = original_fn
 
 
 if __name__ == '__main__':

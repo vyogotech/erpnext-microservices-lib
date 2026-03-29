@@ -1,5 +1,6 @@
 """
-Tenant isolation: TenantAwareDB, get_user_tenant_id, NullContext.
+Tenant isolation: TenantAwareDB, get_user_tenant_id, NullContext,
+patch_valid_dict_for_tenant_id.
 
 This module provides multi-tenant data isolation for microservices:
 - NullContext: No-op context manager used when OpenTelemetry is not available
@@ -9,6 +10,9 @@ This module provides multi-tenant data isolation for microservices:
 - TenantAwareDB: Wrapper around Frappe DB that injects tenant_id into all filters,
   verifies tenant ownership on get_doc/set_value, and runs DocumentHooks on insert/update/delete.
   Used as app.tenant_db so that endpoints never forget to scope by tenant.
+- patch_valid_dict_for_tenant_id(): Monkey-patches BaseDocument.get_valid_dict
+  so that tenant_id (added via ALTER TABLE, absent from DocType metadata) is
+  always included in INSERT/UPDATE SQL. Must be called once after frappe.init().
 """
 
 import logging
@@ -23,6 +27,49 @@ try:
     _otel_tracer = trace.get_tracer(__name__)
 except ImportError:
     _otel_tracer = None
+
+
+_logger = logging.getLogger(__name__)
+
+
+def patch_valid_dict_for_tenant_id():
+    """
+    Monkey-patch ``BaseDocument.get_valid_dict`` so that ``tenant_id`` is
+    included in the dict that Frappe uses to build INSERT and UPDATE SQL.
+
+    **Why this is needed:**
+    ``tenant_id`` is added to DocType tables via ``ALTER TABLE``, not via
+    DocType field metadata. Frappe's ``get_valid_dict`` only returns fields
+    from ``get_valid_columns`` (metadata-driven), so the INSERT/UPDATE SQL
+    never contains ``tenant_id`` — the column keeps its DB default (usually
+    ``SYSTEM`` or ``NULL``).
+
+    This patch appends ``tenant_id`` to the returned dict whenever it is set
+    on the document object, covering:
+    - ``insert_doc`` (single inserts via TenantAwareDB)
+    - ``new_doc`` followed by manual ``doc.insert()``
+    - Child-table row inserts (Frappe calls ``db_insert`` per child)
+    - Direct ``frappe.get_doc({...}).insert()`` anywhere in service code
+
+    Must be called **once** after ``frappe.init()`` — idempotent.
+    """
+    from frappe.model.base_document import BaseDocument
+
+    if getattr(BaseDocument, '_tenant_valid_dict_patched', False):
+        return
+
+    original_get_valid_dict = BaseDocument.get_valid_dict
+
+    def _patched_get_valid_dict(self, *args, **kwargs):
+        d = original_get_valid_dict(self, *args, **kwargs)
+        tenant_id = getattr(self, 'tenant_id', None)
+        if tenant_id and 'tenant_id' not in d:
+            d['tenant_id'] = tenant_id
+        return d
+
+    BaseDocument.get_valid_dict = _patched_get_valid_dict
+    BaseDocument._tenant_valid_dict_patched = True
+    _logger.info("Patched BaseDocument.get_valid_dict to include tenant_id in SQL")
 
 
 class NullContext:
@@ -447,16 +494,6 @@ class TenantAwareDB:
 
             if _otel_tracer and span and hasattr(doc, 'name'):
                 span.set_attribute("db.document.name", doc.name)
-
-        # Frappe's ORM only persists fields listed in DocType metadata
-        # (valid_columns). tenant_id is added via ALTER TABLE, so the INSERT
-        # statement never includes it and the column keeps its DB default.
-        # Stamp it with raw SQL immediately after insert to guarantee isolation.
-        if hasattr(doc, 'name') and doc.name:
-            frappe.db.sql(
-                f"UPDATE `tab{doctype}` SET `tenant_id` = %s WHERE `name` = %s",
-                (tenant_id, doc.name),
-            )
 
         if self.verify_tenant_on_insert and hasattr(doc, 'name') and doc.name:
             saved_tenant = frappe.db.get_value(doctype, doc.name, 'tenant_id')
