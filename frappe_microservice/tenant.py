@@ -448,6 +448,16 @@ class TenantAwareDB:
             if _otel_tracer and span and hasattr(doc, 'name'):
                 span.set_attribute("db.document.name", doc.name)
 
+        # Frappe's ORM only persists fields listed in DocType metadata
+        # (valid_columns). tenant_id is added via ALTER TABLE, so the INSERT
+        # statement never includes it and the column keeps its DB default.
+        # Stamp it with raw SQL immediately after insert to guarantee isolation.
+        if hasattr(doc, 'name') and doc.name:
+            frappe.db.sql(
+                f"UPDATE `tab{doctype}` SET `tenant_id` = %s WHERE `name` = %s",
+                (tenant_id, doc.name),
+            )
+
         if self.verify_tenant_on_insert and hasattr(doc, 'name') and doc.name:
             saved_tenant = frappe.db.get_value(doctype, doc.name, 'tenant_id')
 

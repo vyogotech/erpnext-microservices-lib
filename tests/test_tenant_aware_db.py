@@ -130,9 +130,10 @@ class TestTenantAwareDBInsert:
         get_tenant_id = MagicMock(return_value="test_tenant")
         return TenantAwareDB(get_tenant_id)
     
+    @patch('frappe.db.sql', create=True)
     @patch('frappe.get_doc', create=True)
     @patch('frappe.db.get_value', create=True)
-    def test_insert_doc_basic(self, mock_get_value, mock_get_doc, db):
+    def test_insert_doc_basic(self, mock_get_value, mock_get_doc, mock_sql, db):
         """Test basic document insertion with tenant_id"""
         mock_doc = MagicMock()
         mock_doc.name = "DOC-001"
@@ -148,13 +149,20 @@ class TestTenantAwareDBInsert:
         
         # Verify insert was called
         mock_doc.insert.assert_called_once()
+
+        # Verify raw SQL UPDATE stamps tenant_id after insert
+        mock_sql.assert_called_once()
+        sql_args = mock_sql.call_args
+        assert "UPDATE" in sql_args[0][0]
+        assert sql_args[0][1] == ("test_tenant", "DOC-001")
         
         # Verify post-insert verification
         mock_get_value.assert_called_once()
     
+    @patch('frappe.db.sql', create=True)
     @patch('frappe.get_doc', create=True)
     @patch('frappe.db.get_value', create=True)
-    def test_insert_doc_verification_disabled(self, mock_get_value, mock_get_doc):
+    def test_insert_doc_verification_disabled(self, mock_get_value, mock_get_doc, mock_sql):
         """Test insert with verification disabled (performance mode)"""
         get_tenant_id = MagicMock(return_value="test_tenant")
         db = TenantAwareDB(get_tenant_id, verify_tenant_on_insert=False)
@@ -164,13 +172,17 @@ class TestTenantAwareDBInsert:
         mock_get_doc.return_value = mock_doc
         
         db.insert_doc('Sales Order', {'customer': 'CUST-001'})
+
+        # SQL UPDATE still runs regardless of verify flag
+        mock_sql.assert_called_once()
         
         # Verification should be skipped
         mock_get_value.assert_not_called()
     
+    @patch('frappe.db.sql', create=True)
     @patch('frappe.get_doc', create=True)
     @patch('frappe.db.get_value', create=True)
-    def test_insert_doc_verification_mismatch(self, mock_get_value, mock_get_doc, db):
+    def test_insert_doc_verification_mismatch(self, mock_get_value, mock_get_doc, mock_sql, db):
         """Test error when saved tenant_id doesn't match"""
         mock_doc = MagicMock()
         mock_doc.name = "DOC-001"
