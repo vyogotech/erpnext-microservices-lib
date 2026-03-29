@@ -36,6 +36,16 @@ sys.modules['frappe.core.doctype'] = MagicMock()
 sys.modules['frappe.core.doctype.version'] = MagicMock()
 sys.modules['frappe.core.doctype.version.version'] = MagicMock()
 
+# tenant.py patch_valid_dict_for_tenant_id imports BaseDocument
+mock_model = MagicMock()
+mock_base_document = MagicMock()
+mock_base_document.BaseDocument = type('BaseDocument', (), {
+    'get_valid_dict': lambda self, *a, **kw: {},
+    '_tenant_valid_dict_patched': False,
+})
+sys.modules['frappe.model'] = mock_model
+sys.modules['frappe.model.base_document'] = mock_base_document
+
 # central.py imports FrappeClient from frappe.frappeclient
 mock_frappeclient = MagicMock()
 mock_frappeclient.FrappeClient = MagicMock()
