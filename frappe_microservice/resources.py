@@ -115,8 +115,15 @@ class ResourceMixin:
                 description: List of {doctype} documents
             """
 
-            self.secure_route(f'{base_path}/{doctype_url}',
+            # Standard Frappe path (with spaces or %20)
+            self.secure_route(f'{base_path}/{doctype}',
                                methods=['GET'], endpoint=endpoint_name)(list_handler)
+
+            # Hyphenated path for backward compatibility
+            if doctype_url != doctype:
+                endpoint_name_kebab = f'list_{doctype_url.replace("-", "_")}_kebab'
+                self.secure_route(f'{base_path}/{doctype_url}',
+                                   methods=['GET'], endpoint=endpoint_name_kebab)(list_handler)
 
             if 'get' in custom_handlers:
                 get_handler = custom_handlers['get']
@@ -154,8 +161,15 @@ class ResourceMixin:
                 description: Document not found
             """
 
-            self.secure_route(f'{base_path}/{doctype_url}/<name>',
+            # Standard Frappe path (with spaces or %20)
+            self.secure_route(f'{base_path}/{doctype}/<name>',
                                methods=['GET'], endpoint=endpoint_name)(get_handler)
+
+            # Hyphenated path for backward compatibility
+            if doctype_url != doctype:
+                endpoint_name_kebab = f'get_{doctype_url.replace("-", "_")}_kebab'
+                self.secure_route(f'{base_path}/{doctype_url}/<name>',
+                                   methods=['GET'], endpoint=endpoint_name_kebab)(get_handler)
 
         if 'POST' in methods:
             if 'post' in custom_handlers:
@@ -199,8 +213,15 @@ class ResourceMixin:
                 description: Invalid request data
             """
 
-            self.secure_route(f'{base_path}/{doctype_url}',
+            # Standard Frappe path (with spaces or %20)
+            self.secure_route(f'{base_path}/{doctype}',
                                methods=['POST'], endpoint=endpoint_name)(create_handler)
+
+            # Hyphenated path for backward compatibility
+            if doctype_url != doctype:
+                endpoint_name_kebab = f'create_{doctype_url.replace("-", "_")}_kebab'
+                self.secure_route(f'{base_path}/{doctype_url}',
+                                   methods=['POST'], endpoint=endpoint_name_kebab)(create_handler)
 
         if 'PUT' in methods:
             if 'put' in custom_handlers:
@@ -254,8 +275,15 @@ class ResourceMixin:
                 description: Document not found
             """
 
-            self.secure_route(f'{base_path}/{doctype_url}/<name>',
+            # Standard Frappe path (with spaces or %20)
+            self.secure_route(f'{base_path}/{doctype}/<name>',
                                methods=['PUT'], endpoint=endpoint_name)(update_handler)
+
+            # Hyphenated path for backward compatibility
+            if doctype_url != doctype:
+                endpoint_name_kebab = f'update_{doctype_url.replace("-", "_")}_kebab'
+                self.secure_route(f'{base_path}/{doctype_url}/<name>',
+                                   methods=['PUT'], endpoint=endpoint_name_kebab)(update_handler)
 
         if 'DELETE' in methods:
             if 'delete' in custom_handlers:
@@ -298,5 +326,12 @@ class ResourceMixin:
                 description: Document not found
             """
 
-            self.secure_route(f'{base_path}/{doctype_url}/<name>',
+            # Standard Frappe path (with spaces or %20)
+            self.secure_route(f'{base_path}/{doctype}/<name>',
                                methods=['DELETE'], endpoint=endpoint_name)(delete_handler)
+
+            # Hyphenated path for backward compatibility
+            if doctype_url != doctype:
+                endpoint_name_kebab = f'delete_{doctype_url.replace("-", "_")}_kebab'
+                self.secure_route(f'{base_path}/{doctype_url}/<name>',
+                                   methods=['DELETE'], endpoint=endpoint_name_kebab)(delete_handler)
