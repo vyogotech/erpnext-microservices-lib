@@ -38,8 +38,21 @@ except ImportError:
 
 from werkzeug.exceptions import HTTPException
 
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+_active_app = None
+
+
+def get_app() -> "MicroserviceApp":
+    """
+    Returns the currently active MicroserviceApp instance.
+    Raises RuntimeError if no app has been initialized yet.
+    """
+    if _active_app is None:
+        raise RuntimeError(
+            "MicroserviceApp has not been initialized yet. "
+            "Call create_microservice() first."
+        )
+    return _active_app
 
 
 class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMixin):
@@ -185,6 +198,9 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
         self._initialize_frappe()
         self._auto_discover_controllers()
         self._maybe_start_rq_worker()
+
+        global _active_app
+        _active_app = self
 
     @property
     def central(self):
@@ -728,4 +744,7 @@ def create_microservice(name, **config):
     load_framework_hooks, etc.) as config. This is the recommended entry point
     for new microservices.
     """
-    return MicroserviceApp(name, **config)
+    app = MicroserviceApp(name, **config)
+    global _active_app
+    _active_app = app
+    return app

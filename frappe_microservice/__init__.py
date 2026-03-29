@@ -32,6 +32,7 @@ __version__ = "1.1.0"
 __author__ = "Frappe MS Team"
 
 from .core import MicroserviceApp, create_microservice, TenantAwareDB, get_user_tenant_id
+from .app import get_app
 from .controller import (
     DocumentController,
     ControllerRegistry,
@@ -50,5 +51,6 @@ __all__ = [
     'get_controller_registry',
     'setup_controllers',
     'get_user_tenant_id',
+    'get_app',
     '__version__'
 ]
