@@ -66,7 +66,8 @@ def _doc_as_json_str(doc_dict: dict) -> str:
     safe = _make_json_safe(doc_dict)
     try:
         return frappe.as_json(safe)
-    except TypeError:
+    except Exception:
+        # Frappe/json may still fail on rare types or nested shapes; never fail GET one.
         return json.dumps(safe, default=str, indent=1, sort_keys=True, ensure_ascii=True)
 
 

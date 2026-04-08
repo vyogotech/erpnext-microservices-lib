@@ -27,7 +27,7 @@ from frappe_microservice.site_config import create_site_config
 from frappe_microservice.tenant import TenantAwareDB, get_user_tenant_id, patch_valid_dict_for_tenant_id
 from frappe_microservice.isolation import IsolationMixin
 from frappe_microservice.auth import AuthMixin
-from frappe_microservice.resources import ResourceMixin
+from frappe_microservice.resources import ResourceMixin, _make_json_safe
 from frappe_microservice.central import CentralSiteClient
 from frappe_microservice.background import BackgroundTaskMixin
 
@@ -570,7 +570,8 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
                     result = f(username, *args, **kwargs)
 
                     if isinstance(result, dict):
-                        return jsonify(result)
+                        # Flask jsonify cannot encode timedelta/Decimal/etc.; handlers may return raw Frappe shapes.
+                        return jsonify(_make_json_safe(result))
 
                     return result
 
