@@ -38,7 +38,10 @@ def _format_timedelta_safe(obj: timedelta) -> str:
 
 def _make_json_safe(obj):
     """Recursively normalize values for JSON (GET list/one: timedelta, Decimal, Mapping, etc.)."""
-    if obj is None or isinstance(obj, (bool, int, float, str)):
+    # bool before int: bool is a subclass of int in Python
+    if obj is None or isinstance(obj, bool):
+        return obj
+    if isinstance(obj, (int, float, str)):
         return obj
     if isinstance(obj, timedelta):
         return _format_timedelta_safe(obj)
@@ -62,13 +65,13 @@ def _make_json_safe(obj):
 
 
 def _doc_as_json_str(doc_dict: dict) -> str:
-    """Sanitize doc tree, then encode with Frappe as_json (uses json_handler + indent/sort_keys)."""
+    """Serialize a document dict for GET /api/resource/... responses.
+
+    Do not use frappe.as_json here: some Frappe stacks still raise on nested values
+    (e.g. timedelta) despite json_handler; stdlib json with default=str is reliable.
+    """
     safe = _make_json_safe(doc_dict)
-    try:
-        return frappe.as_json(safe)
-    except Exception:
-        # Frappe/json may still fail on rare types or nested shapes; never fail GET one.
-        return json.dumps(safe, default=str, indent=1, sort_keys=True, ensure_ascii=True)
+    return json.dumps(safe, default=str, indent=1, sort_keys=True, ensure_ascii=True)
 
 
 class ResourceMixin:

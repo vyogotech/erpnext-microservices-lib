@@ -573,6 +573,11 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
                         # Flask jsonify cannot encode timedelta/Decimal/etc.; handlers may return raw Frappe shapes.
                         return jsonify(_make_json_safe(result))
 
+                    # (dict, status) / (dict, status, headers) — Flask jsonifies the dict without our encoder
+                    if isinstance(result, tuple) and len(result) and isinstance(result[0], dict):
+                        head = jsonify(_make_json_safe(result[0]))
+                        return (head, *result[1:]) if len(result) > 1 else head
+
                     return result
 
                 except (frappe.PermissionError, frappe.AuthenticationError) as e:

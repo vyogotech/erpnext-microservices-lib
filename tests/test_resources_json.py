@@ -7,7 +7,6 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 from uuid import UUID
 
-import frappe
 from frappe_microservice.resources import (
     _doc_as_json_str,
     _format_timedelta_safe,
@@ -76,15 +75,13 @@ def test_format_timedelta_safe_coerces_non_str_return(monkeypatch):
     assert _format_timedelta_safe(timedelta(seconds=1)) == "42"
 
 
-def test_doc_as_json_str_uses_frappe_as_json():
+def test_doc_as_json_str_round_trip():
     body = _doc_as_json_str({"name": "X"})
     assert json.loads(body)["name"] == "X"
 
 
-def test_doc_as_json_str_fallback_when_as_json_raises_type_error(monkeypatch):
-    def boom(_obj):
-        raise TypeError("bad")
-
-    monkeypatch.setattr(frappe, "as_json", boom)
-    body = _doc_as_json_str({"a": 1})
-    assert json.loads(body)["a"] == 1
+def test_doc_as_json_str_timedelta_becomes_string():
+    body = _doc_as_json_str({"name": "PI-1", "schedule": timedelta(hours=2)})
+    data = json.loads(body)
+    assert data["name"] == "PI-1"
+    assert isinstance(data["schedule"], str)
