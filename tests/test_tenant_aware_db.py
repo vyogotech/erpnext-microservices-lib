@@ -133,30 +133,18 @@ class TestTenantAwareDBInsert:
     @patch('frappe.get_doc', create=True)
     @patch('frappe.db.get_value', create=True)
     def test_insert_doc_basic(self, mock_get_value, mock_get_doc, db):
-        """Test basic document insertion with tenant_id and child record syncing"""
+        """Test basic document insertion with tenant_id"""
         mock_doc = MagicMock()
         mock_doc.name = "DOC-001"
         mock_doc.tenant_id = "test_tenant"
-        
-        # Setup child tracking
-        child1 = MagicMock()
-        mock_fieldname = MagicMock()
-        mock_fieldname.fieldname = "items"
-        
-        mock_doc.meta.get_table_fields.return_value = [mock_fieldname]
-        mock_doc.get.return_value = [child1]
-        
         mock_get_doc.return_value = mock_doc
         mock_get_value.return_value = "test_tenant"
         
         result = db.insert_doc('Sales Order', {'customer': 'CUST-001'})
         
-        # Verify tenant_id was set on parent
+        # Verify tenant_id was set
         call_args = mock_get_doc.call_args[0][0]
         assert call_args['tenant_id'] == 'test_tenant'
-        
-        # Verify tenant_id was synced to child
-        assert child1.tenant_id == "test_tenant"
         
         # Verify insert was called
         mock_doc.insert.assert_called_once()
@@ -218,26 +206,15 @@ class TestTenantAwareDBUpdate:
     
     @patch('frappe.get_doc', create=True)
     def test_update_doc_basic(self, mock_get_doc, db):
-        """Test basic document update with tenant verification and child sync"""
+        """Test basic document update with tenant verification"""
         mock_doc = MagicMock()
         mock_doc.tenant_id = "test_tenant"
-        
-        child1 = MagicMock()
-        mock_fieldname = MagicMock()
-        mock_fieldname.fieldname = "items"
-        
-        mock_doc.meta.get_table_fields.return_value = [mock_fieldname]
-        setattr(mock_doc, "items", [child1])
-        
         mock_get_doc.return_value = mock_doc
         
         result = db.update_doc('Sales Order', 'SO-001', {'status': 'Completed'})
         
         # Verify fields were updated
         assert mock_doc.status == 'Completed'
-        
-        # Verify child gets tenant_id synced
-        assert child1.tenant_id == "test_tenant"
         
         # Verify save was called
         mock_doc.save.assert_called_once()
@@ -250,57 +227,6 @@ class TestTenantAwareDBUpdate:
         mock_get_doc.return_value = mock_doc
         
         with pytest.raises(frappe.PermissionError, match="does not belong to current tenant"):
-            db.update_doc('Sales Order', 'SO-001', {'status': 'Completed'})
-
-
-class TestTenantAwareDBLinkIsolation:
-    """Tenant isolation for Link fields during writes."""
-
-    @pytest.fixture
-    def db(self):
-        get_tenant_id = MagicMock(return_value="test_tenant")
-        return TenantAwareDB(get_tenant_id)
-
-    @patch('frappe.db.get_value', create=True)
-    @patch('frappe.get_doc', create=True)
-    def test_insert_doc_rejects_cross_tenant_link(self, mock_get_doc, mock_get_value, db):
-        """insert_doc must reject Link values that point to another tenant."""
-        link_field = MagicMock()
-        link_field.fieldname = "customer"
-        link_field.options = "Customer"
-
-        mock_doc = MagicMock()
-        mock_doc.meta.get_table_fields.return_value = []
-        mock_doc.meta.get_link_fields.return_value = [link_field]
-        mock_doc.get.side_effect = lambda key: "CUST-001" if key == "customer" else None
-        mock_doc.name = "SO-001"
-        mock_get_doc.return_value = mock_doc
-
-        # Linked Customer belongs to another tenant.
-        mock_get_value.side_effect = ["other_tenant", "test_tenant"]
-
-        with pytest.raises(frappe.PermissionError, match="Cross-tenant link"):
-            db.insert_doc('Sales Order', {'customer': 'CUST-001'})
-
-    @patch('frappe.db.get_value', create=True)
-    @patch('frappe.get_doc', create=True)
-    def test_update_doc_rejects_cross_tenant_link(self, mock_get_doc, mock_get_value, db):
-        """update_doc must reject cross-tenant Link values before save."""
-        link_field = MagicMock()
-        link_field.fieldname = "customer"
-        link_field.options = "Customer"
-
-        mock_doc = MagicMock()
-        mock_doc.tenant_id = "test_tenant"
-        mock_doc.meta.get_table_fields.return_value = []
-        mock_doc.meta.get_link_fields.return_value = [link_field]
-        mock_doc.get.side_effect = lambda key: "CUST-002" if key == "customer" else None
-        mock_get_doc.return_value = mock_doc
-
-        # Linked Customer belongs to another tenant.
-        mock_get_value.return_value = "other_tenant"
-
-        with pytest.raises(frappe.PermissionError, match="Cross-tenant link"):
             db.update_doc('Sales Order', 'SO-001', {'status': 'Completed'})
 
 

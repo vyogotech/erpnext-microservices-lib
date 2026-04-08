@@ -1,18 +1,5 @@
 # Changelog
 
-## [1.4.2] - 2026-04-01
-
-### Added
-- **Tenant Link Isolation**: `TenantAwareDB` now validates Link fields on write paths and blocks cross-tenant references unless the linked record belongs to the current tenant or `SYSTEM`.
-- **Regression Tests**: Added targeted tests for cross-tenant Link rejection in `insert_doc` and `update_doc`.
-
-### Changed
-- **Child Tenant Propagation**: Tenant synchronization for child table rows is now enforced before persistence in both `insert_doc` and `update_doc` paths.
-
-### Notes
-- This release hardens application-layer tenant safety on write operations.
-- Query-time Link filtering in consuming apps should still be configured for custom Desk Link query methods.
-
 ## [1.4.1] - 2026-03-14
 
 ### Fixed

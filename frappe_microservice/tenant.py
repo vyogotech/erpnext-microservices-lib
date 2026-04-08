@@ -230,37 +230,6 @@ class TenantAwareDB:
             f"Expected None, str, dict, or list."
         )
 
-    def _validate_link_fields_tenant(self, doc, tenant_id):
-        """Reject Link values that reference documents outside the current tenant."""
-        docs_to_check = [doc]
-
-        if hasattr(doc, 'meta') and hasattr(doc.meta, 'get_table_fields'):
-            for table_field in doc.meta.get_table_fields() or []:
-                docs_to_check.extend(doc.get(table_field.fieldname) or [])
-
-        for current_doc in docs_to_check:
-            meta = getattr(current_doc, 'meta', None)
-            if not meta or not hasattr(meta, 'get_link_fields'):
-                continue
-
-            for link_field in meta.get_link_fields() or []:
-                fieldname = getattr(link_field, 'fieldname', None)
-                options = getattr(link_field, 'options', None)
-
-                if not fieldname or not options:
-                    continue
-
-                link_value = current_doc.get(fieldname) if hasattr(current_doc, 'get') else getattr(current_doc, fieldname, None)
-                if not link_value:
-                    continue
-
-                linked_tenant_id = frappe.db.get_value(options, link_value, 'tenant_id')
-                if linked_tenant_id and linked_tenant_id not in (tenant_id, 'SYSTEM'):
-                    raise frappe.PermissionError(
-                        f"Cross-tenant link not allowed for field '{fieldname}': "
-                        f"{options} '{link_value}' belongs to tenant '{linked_tenant_id}'"
-                    )
-
     def get_all(self, doctype, filters=None, **kwargs):
         """
         Get all documents with automatic tenant_id filter
@@ -507,13 +476,6 @@ class TenantAwareDB:
         # during insert() unless set directly on the doc object.
         doc.tenant_id = tenant_id
 
-        if hasattr(doc.meta, 'get_table_fields'):
-            for fieldname in doc.meta.get_table_fields():
-                for child_doc in (doc.get(fieldname.fieldname) or []):
-                    child_doc.tenant_id = tenant_id
-
-        self._validate_link_fields_tenant(doc, tenant_id)
-
         if run_hooks:
             self.hooks.run_hooks(doc, 'before_validate')
             self.hooks.run_hooks(doc, 'before_insert')
@@ -591,14 +553,6 @@ class TenantAwareDB:
         for key, value in data.items():
             if hasattr(doc, key):
                 setattr(doc, key, value)
-                
-        # Sync tenant_id to all child tables to catch newly appended rows
-        if hasattr(doc, 'tenant_id') and doc.tenant_id and hasattr(doc.meta, 'get_table_fields'):
-            for fieldname in doc.meta.get_table_fields():
-                for child_doc in (getattr(doc, fieldname.fieldname, None) or []):
-                    child_doc.tenant_id = doc.tenant_id
-
-        self._validate_link_fields_tenant(doc, doc.tenant_id)
 
         doc.save(**kwargs)
 
