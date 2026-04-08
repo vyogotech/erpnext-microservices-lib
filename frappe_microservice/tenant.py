@@ -552,7 +552,7 @@ class TenantAwareDB:
 
         for key, value in data.items():
             if hasattr(doc, key):
-                setattr(doc, key, value)
+                doc.set(key, value)
 
         doc.save(**kwargs)
 
