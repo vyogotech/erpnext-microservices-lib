@@ -16,7 +16,7 @@ Swagger docstrings are attached for /apidocs.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -25,11 +25,23 @@ import frappe
 from flask import request
 
 
+def _format_timedelta_safe(obj: timedelta) -> str:
+    """Match Frappe desk/API duration strings (see frappe.utils.response.json_handler)."""
+    try:
+        from frappe.utils import format_timedelta
+
+        return format_timedelta(obj)
+    except Exception:
+        return str(obj)
+
+
 def _make_json_safe(obj):
-    """Recursively normalize values for JSON (GET list/one can include timedelta, Decimal, etc.)."""
+    """Recursively normalize values for JSON (GET list/one: timedelta, Decimal, Mapping, etc.)."""
     if obj is None or isinstance(obj, (bool, int, float, str)):
         return obj
-    if isinstance(obj, (date, datetime, time, timedelta)):
+    if isinstance(obj, timedelta):
+        return _format_timedelta_safe(obj)
+    if isinstance(obj, (date, datetime, time)):
         return str(obj)
     if isinstance(obj, Decimal):
         return float(obj)
@@ -43,18 +55,18 @@ def _make_json_safe(obj):
         return {str(k): _make_json_safe(v) for k, v in obj.items()}
     if isinstance(obj, Sequence):
         return [_make_json_safe(v) for v in obj]
+    if isinstance(obj, Iterable) and not isinstance(obj, (str, bytes, bytearray)):
+        return [_make_json_safe(v) for v in obj]
     return str(obj)
 
 
 def _doc_as_json_str(doc_dict: dict) -> str:
-    """Serialize document for API response without relying on Frappe json_handler quirks."""
-    return json.dumps(
-        _make_json_safe(doc_dict),
-        default=str,
-        indent=1,
-        sort_keys=True,
-        ensure_ascii=True,
-    )
+    """Sanitize doc tree, then encode with Frappe as_json (uses json_handler + indent/sort_keys)."""
+    safe = _make_json_safe(doc_dict)
+    try:
+        return frappe.as_json(safe)
+    except TypeError:
+        return json.dumps(safe, default=str, indent=1, sort_keys=True, ensure_ascii=True)
 
 
 class ResourceMixin:
