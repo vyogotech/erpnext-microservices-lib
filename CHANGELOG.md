@@ -14,6 +14,16 @@
 - **`docker-compose.integration.yml`**: Single-service compose file for the integration test container.
 - **`scripts/run_integration_tests.sh`**: End-to-end orchestration script — starts container, waits for site readiness, bootstraps ERPNext test data if needed, installs the library + pytest, runs the suite, and tears down. Supports `KEEP_RUNNING=1` for debugging.
 
+- **FakeDocument / FakeChildDocument test doubles** (`tests/conftest.py`): Lightweight stand-ins for `BaseDocument` that faithfully model the child-table conversion behaviour. `FakeDocument.update()` converts child dicts to `FakeChildDocument` instances (like `BaseDocument.update` → `_init_child`), while raw `setattr` leaves them as plain dicts. `save()` calls `_set_defaults()` → `is_new()` on every child row — crashing on dicts exactly like the real framework.
+- **Document-model unit tests** (`tests/test_tenant_aware_db.py::TestUpdateDocDocumentModel`): 6 tests that assert against the Document model instead of `MagicMock`:
+  - Child table dicts become `FakeChildDocument` instances after `update_doc`
+  - Multiple child tables (items + taxes) handled correctly
+  - Scalar-only updates work without child table fields
+  - **Regression proof**: the old `setattr` loop crashes with `AttributeError: 'dict' object has no attribute 'is_new'`
+  - `doc.update()` converts dicts so `save()` succeeds
+  - Every child row exposes a callable `is_new()`
+- **CI integration-test job** (`.github/workflows/ci.yml`): Runs integration tests with `--cov` coverage inside the ERPNext container, gating the image build (`test → integration-test → build`).
+
 ### Coverage
 - Integration tests cover **45%** of `tenant.py` (the module containing the fix) with real Frappe `Document` objects against a live database — no mocks.
 - Overall library integration coverage is **16%** (these tests focus on the CRUD/tenant layer; other modules like `app.py`, `isolation.py`, `auth.py` are covered by the existing mock-based unit suite at **80%+**).

@@ -521,5 +521,132 @@ class TestPatchValidDictForTenantId:
             BaseDocument.get_valid_dict = original_fn
 
 
+class TestUpdateDocDocumentModel:
+    """Tests using FakeDocument instead of MagicMock.
+
+    These verify that update_doc produces real Document-like child rows,
+    not plain dicts.  The old setattr-based code would fail these tests
+    with ``AttributeError: 'dict' object has no attribute 'is_new'``.
+    """
+
+    @pytest.fixture
+    def db(self):
+        get_tenant_id = MagicMock(return_value="test_tenant")
+        return TenantAwareDB(get_tenant_id)
+
+    def _make_doc(self, data, table_fieldnames=()):
+        from tests.conftest import FakeDocument
+        data.setdefault("doctype", "Purchase Invoice")
+        return FakeDocument(data, table_fieldnames=table_fieldnames)
+
+    def test_update_doc_converts_child_table_dicts(self, db):
+        """Child table dicts must become FakeChildDocument after update_doc."""
+        from tests.conftest import FakeChildDocument
+
+        doc = self._make_doc(
+            {"name": "INV-001", "tenant_id": "test_tenant", "items": [], "grand_total": 0},
+            table_fieldnames=("items",),
+        )
+        frappe.get_doc.return_value = doc
+
+        result = db.update_doc("Purchase Invoice", "INV-001", {
+            "grand_total": 1000,
+            "items": [{"item_code": "ITEM-001", "qty": 5, "rate": 200}],
+        })
+
+        assert result.grand_total == 1000
+        assert len(result.items) == 1
+        assert isinstance(result.items[0], FakeChildDocument)
+        assert result.items[0].item_code == "ITEM-001"
+        assert result.items[0].qty == 5
+        assert result._saved is True
+
+    def test_update_doc_multiple_child_tables(self, db):
+        """update_doc must handle multiple child tables correctly."""
+        from tests.conftest import FakeChildDocument
+
+        doc = self._make_doc(
+            {"name": "INV-002", "tenant_id": "test_tenant", "items": [], "taxes": []},
+            table_fieldnames=("items", "taxes"),
+        )
+        frappe.get_doc.return_value = doc
+
+        result = db.update_doc("Purchase Invoice", "INV-002", {
+            "items": [
+                {"item_code": "A", "qty": 1},
+                {"item_code": "B", "qty": 2},
+            ],
+            "taxes": [
+                {"charge_type": "On Net Total", "rate": 18},
+            ],
+        })
+
+        assert all(isinstance(r, FakeChildDocument) for r in result.items)
+        assert all(isinstance(r, FakeChildDocument) for r in result.taxes)
+        assert result.items[1].item_code == "B"
+        assert result.taxes[0].rate == 18
+        assert result._saved is True
+
+    def test_update_doc_scalar_only(self, db):
+        """Scalar-only updates must work without child table fields."""
+        doc = self._make_doc(
+            {"name": "INV-003", "tenant_id": "test_tenant", "status": "Draft"},
+        )
+        frappe.get_doc.return_value = doc
+
+        result = db.update_doc("Purchase Invoice", "INV-003", {"status": "Submitted"})
+
+        assert result.status == "Submitted"
+        assert result._saved is True
+
+    def test_setattr_approach_crashes_with_child_tables(self):
+        """Proves the old setattr loop would crash — the exact regression we fixed."""
+        doc = self._make_doc(
+            {"name": "INV-004", "tenant_id": "test_tenant", "items": []},
+            table_fieldnames=("items",),
+        )
+
+        # Simulate the OLD broken code: raw setattr skips child conversion
+        for key, value in {"items": [{"item_code": "X", "qty": 1}]}.items():
+            object.__setattr__(doc, key, value)
+
+        assert isinstance(doc.items[0], dict)  # still a dict!
+
+        with pytest.raises(AttributeError, match="is_new"):
+            doc.save()
+
+    def test_doc_update_then_save_succeeds(self):
+        """doc.update() converts child dicts so save() succeeds."""
+        from tests.conftest import FakeChildDocument
+
+        doc = self._make_doc(
+            {"name": "INV-005", "tenant_id": "test_tenant", "items": []},
+            table_fieldnames=("items",),
+        )
+
+        doc.update({"items": [{"item_code": "Y", "qty": 3}]})
+
+        assert isinstance(doc.items[0], FakeChildDocument)
+        doc.save()  # must not raise
+        assert doc._saved is True
+
+    def test_update_doc_child_rows_support_is_new(self, db):
+        """Every child row returned by update_doc must have a working is_new()."""
+        doc = self._make_doc(
+            {"name": "INV-006", "tenant_id": "test_tenant", "items": []},
+            table_fieldnames=("items",),
+        )
+        frappe.get_doc.return_value = doc
+
+        result = db.update_doc("Purchase Invoice", "INV-006", {
+            "items": [{"item_code": "Z", "qty": 10}],
+        })
+
+        for row in result.items:
+            assert hasattr(row, "is_new")
+            assert callable(row.is_new)
+            assert row.is_new() is True
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v', '--cov=frappe_microservice.core', '--cov-report=html'])
