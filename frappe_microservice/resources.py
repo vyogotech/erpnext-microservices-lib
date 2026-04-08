@@ -13,8 +13,48 @@ tenant context. Optional custom_handlers can override list/get/post/put/delete.
 Swagger docstrings are attached for /apidocs.
 """
 
+from __future__ import annotations
+
+import json
+from collections.abc import Mapping, Sequence
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
+from uuid import UUID
+
 import frappe
 from flask import request
+
+
+def _make_json_safe(obj):
+    """Recursively normalize values for JSON (GET list/one can include timedelta, Decimal, etc.)."""
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    if isinstance(obj, (date, datetime, time, timedelta)):
+        return str(obj)
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, (bytes, bytearray)):
+        return bytes(obj).decode("utf-8", errors="replace")
+    if isinstance(obj, set):
+        return [_make_json_safe(v) for v in obj]
+    if isinstance(obj, Mapping):
+        return {str(k): _make_json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, Sequence):
+        return [_make_json_safe(v) for v in obj]
+    return str(obj)
+
+
+def _doc_as_json_str(doc_dict: dict) -> str:
+    """Serialize document for API response without relying on Frappe json_handler quirks."""
+    return json.dumps(
+        _make_json_safe(doc_dict),
+        default=str,
+        indent=1,
+        sort_keys=True,
+        ensure_ascii=True,
+    )
 
 
 class ResourceMixin:
@@ -75,10 +115,10 @@ class ResourceMixin:
                             order_by=order_by
                         )
 
-                        return {
+                        return _make_json_safe({
                             "data": documents,
                             "doctype": dt
-                        }
+                        })
                     return handler
 
                 list_handler = make_list_handler(doctype)
@@ -130,9 +170,11 @@ class ResourceMixin:
             else:
                 def make_get_handler(dt):
                     def handler(user, name):
+                        from flask import Response
                         try:
                             doc = self.tenant_db.get_doc(dt, name)
-                            return doc.as_dict()
+                            body = _doc_as_json_str(doc.as_dict())
+                            return Response(body, mimetype="application/json", status=200)
                         except frappe.PermissionError:
                             return {"error": "Access denied"}, 403
                         except frappe.DoesNotExistError:
