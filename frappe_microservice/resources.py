@@ -30,7 +30,8 @@ def _format_timedelta_safe(obj: timedelta) -> str:
     try:
         from frappe.utils import format_timedelta
 
-        return format_timedelta(obj)
+        out = format_timedelta(obj)
+        return out if isinstance(out, str) else str(out)
     except Exception:
         return str(obj)
 

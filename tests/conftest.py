@@ -1,7 +1,23 @@
-import pytest
-from unittest.mock import MagicMock, patch
-from contextvars import ContextVar
+import json
 import sys
+from contextvars import ContextVar
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+
+def _frappe_test_as_json(obj, indent=1, separators=None, ensure_ascii=True, sort_keys=True):
+    """Real JSON encoder for tests (mock MagicMock.as_json is not valid JSON)."""
+    if separators is None:
+        separators = (",", ": ")
+    return json.dumps(
+        obj,
+        indent=indent,
+        sort_keys=sort_keys,
+        ensure_ascii=ensure_ascii,
+        default=str,
+        separators=separators,
+    )
 
 
 class FrappeDict(dict):
@@ -45,7 +61,9 @@ mock_cache_manager = MagicMock()
 mock_cache_manager.reset_metadata_version = MagicMock()
 
 sys.modules['frappe'] = mock_frappe
-sys.modules['frappe.utils'] = MagicMock()
+_mock_frappe_utils = MagicMock()
+_mock_frappe_utils.format_timedelta = lambda o: str(o)
+sys.modules['frappe.utils'] = _mock_frappe_utils
 sys.modules['frappe.utils.local'] = mock_utils_local
 sys.modules['frappe.frappeclient'] = MagicMock()
 sys.modules['frappe.modules'] = MagicMock()
@@ -71,6 +89,7 @@ def setup_mocks(monkeypatch):
     mock_frappe.local = MagicMock()
     mock_frappe.local.db = MagicMock()
     mock_frappe.cache = MagicMock()
+    mock_frappe.as_json = _frappe_test_as_json
     _test_contextvar.set({})
 
     # _service_app_is_importable uses importlib.util.find_spec to decide whether
