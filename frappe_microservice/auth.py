@@ -185,7 +185,10 @@ class AuthMixin:
             self.logger.debug(
                 f"Session validation - cookies: {dict(session_cookies)}")
 
-            sid = session_cookies.get('sid')
+            # React Native fetch often cannot send Cookie; clients may send X-Frappe-SID instead.
+            sid = session_cookies.get('sid') or (
+                request.headers.get('X-Frappe-SID') or ''
+            ).strip() or None
 
             if not sid or sid == 'Guest':
                 self.logger.info(

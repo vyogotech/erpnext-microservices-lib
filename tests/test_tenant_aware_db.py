@@ -209,14 +209,18 @@ class TestTenantAwareDBUpdate:
         """Test basic document update with tenant verification"""
         mock_doc = MagicMock()
         mock_doc.tenant_id = "test_tenant"
+
+        def _apply_update(d):
+            for k, v in d.items():
+                setattr(mock_doc, k, v)
+
+        mock_doc.update = MagicMock(side_effect=_apply_update)
         mock_get_doc.return_value = mock_doc
-        
+
         result = db.update_doc('Sales Order', 'SO-001', {'status': 'Completed'})
-        
-        # Verify fields were updated
+
+        mock_doc.update.assert_called_once_with({'status': 'Completed'})
         assert mock_doc.status == 'Completed'
-        
-        # Verify save was called
         mock_doc.save.assert_called_once()
     
     @patch('frappe.get_doc', create=True)
@@ -376,6 +380,20 @@ class TestUpdateDocValidation:
         mock_get_doc.return_value = mock_doc
         with pytest.raises(ValueError, match="non-empty dict"):
             db.update_doc("Sales Order", "SO-001", "bad")
+
+    @patch("frappe.get_doc", create=True)
+    def test_update_doc_passes_data_without_tenant_id_to_update(self, mock_get_doc, db):
+        """tenant_id must not be forwarded to doc.update (handled earlier in method)."""
+        mock_doc = MagicMock()
+        mock_doc.tenant_id = "test_tenant"
+        mock_doc.update = MagicMock()
+        mock_get_doc.return_value = mock_doc
+        db.update_doc(
+            "Sales Order",
+            "SO-001",
+            {"status": "Completed", "tenant_id": "must-strip"},
+        )
+        mock_doc.update.assert_called_once_with({"status": "Completed"})
 
 
 class TestCommitRollbackGuard:

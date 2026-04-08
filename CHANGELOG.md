@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.5.0] - 2026-04-08
+
+### Fixed
+- **update_doc child table crash**: `TenantAwareDB.update_doc()` used `setattr()` to apply incoming data, which left child-table fields (e.g. `items`, `taxes`) as plain Python dicts instead of Frappe child `Document` instances. On `doc.save()`, Frappe's `_set_defaults()` called `.is_new()` on each child row and crashed with `AttributeError: 'dict' object has no attribute 'is_new'`. Fixed by replacing the `setattr` loop with `doc.update(data)`, which delegates to Frappe's `BaseDocument.update()` → `extend()` → `_init_child()` pipeline to properly convert child rows.
+
+### Added
+- **Integration test suite** (`tests/integration/`): 10 tests that run against a live Frappe/ERPNext site inside a `vyogo/erpnext:sne-version-16` container (all-in-one MariaDB + Redis + Frappe). Tests cover:
+  - `update_doc` with scalar fields, child tables, mixed payloads, row replacement, and Desk-style rows with `name`/`doctype`
+  - `insert_doc` with single and multiple child-table rows
+  - `delete_doc` for draft invoices
+  - Full CRUD cycle (create → read → update with child table → delete)
+- **`docker-compose.integration.yml`**: Single-service compose file for the integration test container.
+- **`scripts/run_integration_tests.sh`**: End-to-end orchestration script — starts container, waits for site readiness, bootstraps ERPNext test data if needed, installs the library + pytest, runs the suite, and tears down. Supports `KEEP_RUNNING=1` for debugging.
+
+### Coverage
+- Integration tests cover **45%** of `tenant.py` (the module containing the fix) with real Frappe `Document` objects against a live database — no mocks.
+- Overall library integration coverage is **16%** (these tests focus on the CRUD/tenant layer; other modules like `app.py`, `isolation.py`, `auth.py` are covered by the existing mock-based unit suite at **80%+**).
+
 ## [1.4.1] - 2026-03-14
 
 ### Fixed
