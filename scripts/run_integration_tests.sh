@@ -79,9 +79,10 @@ frappe.destroy()
 " 2>/dev/null || echo "0")
 
 if [[ "$HAS_COMPANY" == "0" ]]; then
-    log "No Company found — running ERPNext before_tests bootstrap"
+    log "No Company found — bootstrapping site (legacy before_tests or setup_complete)"
     $COMPOSE -f "$COMPOSE_FILE" exec -T "$SERVICE" \
-        bash -c "cd $BENCH && bench --site dev.localhost execute erpnext.setup.utils.before_tests"
+        env FRAPPE_SITE=dev.localhost FRAPPE_SITES_PATH="$BENCH/sites" \
+        "$PYTHON" "$LIB_MOUNT/scripts/bootstrap_integration_site.py"
 fi
 
 # -- install the library and pytest inside the container ---------------------
