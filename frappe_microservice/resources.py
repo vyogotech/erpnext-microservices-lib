@@ -24,6 +24,31 @@ from uuid import UUID
 import frappe
 from flask import request
 
+# GET /api/resource/{doctype} — query keys that are Frappe list/pagination/meta, not DocType columns.
+# If these leak into ``filters``, SQL fails (e.g. Unknown column 'limit_page_length' in 'WHERE').
+_RESOURCE_LIST_META_KEYS = frozenset(
+    {
+        "fields",
+        "limit",
+        "offset",
+        "order_by",
+        "limit_page_length",
+        "limit_start",
+        "filters",
+        "or_filters",
+        "distinct",
+        "ignore_permissions",
+        "save_user_settings",
+        "with_childnames",
+        "parent",
+        "parenttype",
+        "parentfield",
+        "group_by",
+        "as_list",
+        "debug",
+    }
+)
+
 
 def _format_timedelta_safe(obj: timedelta) -> str:
     """Match Frappe desk/API duration strings (see frappe.utils.response.json_handler)."""
@@ -88,8 +113,8 @@ class ResourceMixin:
     def register_resource(self, doctype, base_path=None, methods=None, custom_handlers=None):
         """
         Register RESTful CRUD routes for a DocType. Each enabled method (GET/POST/PUT/DELETE)
-        is implemented using tenant_db so all data is tenant-scoped. List GET parses
-        request.args for fields, limit, offset, order_by and passes the rest as filters.
+        is implemented using tenant_db so all data is tenant-scoped.         List GET parses request.args for fields, limit / limit_page_length, offset / limit_start,
+        order_by and passes the rest as filters (Frappe meta keys are never treated as columns).
         Create/update/delete use request.json. All routes are secured and get (user) as
         first argument.         custom_handlers: {'list'|'get'|'post'|'put'|'delete': callable}.
         """
@@ -107,17 +132,23 @@ class ResourceMixin:
                     def handler(user):
                         filters = {}
                         for key, value in request.args.items():
-                            if key not in ['fields', 'limit', 'offset', 'order_by']:
+                            if key not in _RESOURCE_LIST_META_KEYS:
                                 filters[key] = value
 
                         fields = request.args.get(
                             'fields', '*').split(',') if request.args.get('fields') else None
                         try:
-                            limit = int(request.args.get('limit', 20))
+                            if request.args.get("limit_page_length") is not None:
+                                limit = int(request.args.get("limit_page_length"))
+                            else:
+                                limit = int(request.args.get("limit", 20))
                         except (ValueError, TypeError):
                             limit = 20
                         try:
-                            offset = int(request.args.get('offset', 0))
+                            if request.args.get("limit_start") is not None:
+                                offset = int(request.args.get("limit_start"))
+                            else:
+                                offset = int(request.args.get("offset", 0))
                         except (ValueError, TypeError):
                             offset = 0
                         order_by = request.args.get(
@@ -156,12 +187,20 @@ class ResourceMixin:
                 in: query
                 type: integer
                 default: 20
-                description: Number of records to return
+                description: Number of records to return (alias; Frappe uses limit_page_length)
+              - name: limit_page_length
+                in: query
+                type: integer
+                description: Frappe-style page size (if set, overrides limit)
               - name: offset
                 in: query
                 type: integer
                 default: 0
-                description: Offset for pagination
+                description: Row offset (alias; Frappe uses limit_start)
+              - name: limit_start
+                in: query
+                type: integer
+                description: Frappe-style offset for pagination
               - name: order_by
                 in: query
                 type: string
