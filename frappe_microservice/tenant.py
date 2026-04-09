@@ -550,9 +550,7 @@ class TenantAwareDB:
         if run_hooks:
             self.hooks.run_hooks(doc, 'before_update')
 
-        for key, value in data.items():
-            if hasattr(doc, key):
-                doc.set(key, value)
+        doc.update(data)
 
         doc.save(**kwargs)
 

@@ -76,6 +76,70 @@ sys.modules['frappe.database'] = MagicMock()
 sys.modules['frappe.cache_manager'] = mock_cache_manager
 
 
+class FakeChildDocument:
+    """Mimics a Frappe child Document row.
+
+    The real BaseDocument child rows expose .is_new(), .idx, etc.
+    A plain dict does NOT — which is exactly the bug that setattr caused.
+    """
+
+    def __init__(self, data):
+        for k, v in data.items():
+            object.__setattr__(self, k, v)
+        object.__setattr__(self, "_is_new", True)
+
+    def is_new(self):
+        return self._is_new
+
+
+class FakeDocument:
+    """Lightweight stand-in for frappe.model.base_document.BaseDocument.
+
+    Models the critical behaviour difference that caused the child-table bug:
+
+    * update(data) / set(key, value)  — converts child-table dicts to
+      FakeChildDocument instances (like BaseDocument.update → _init_child).
+    * Plain Python setattr()          — stores the value AS-IS; no conversion.
+
+    save() calls _set_defaults(), which iterates every table field and calls
+    is_new() on each row — reproducing the real AttributeError crash when
+    child rows are still plain dicts.
+    """
+
+    def __init__(self, data=None, table_fieldnames=()):
+        object.__setattr__(self, "_table_fieldnames", table_fieldnames)
+        object.__setattr__(self, "_saved", False)
+        if data:
+            for k, v in data.items():
+                object.__setattr__(self, k, v)
+
+    def update(self, data):
+        for key, value in data.items():
+            self.set(key, value)
+
+    def set(self, key, value):
+        if isinstance(value, list) and key in self._table_fieldnames:
+            value = [
+                FakeChildDocument(v) if isinstance(v, dict) else v
+                for v in value
+            ]
+        object.__setattr__(self, key, value)
+
+    def save(self, **kwargs):
+        self._set_defaults()
+        object.__setattr__(self, "_saved", True)
+
+    def _set_defaults(self):
+        for fieldname in self._table_fieldnames:
+            children = getattr(self, fieldname, None)
+            if children:
+                for d in children:
+                    d.is_new()
+
+    def as_dict(self):
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
+
+
 @pytest.fixture(autouse=True)
 def setup_mocks(monkeypatch):
     """Reset mocks between tests and provide a clean frappe.local state."""

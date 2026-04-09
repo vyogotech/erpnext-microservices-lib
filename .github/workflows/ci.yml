@@ -41,8 +41,80 @@ jobs:
           path: allure-results
           retention-days: 1
 
-  build:
+  integration-test:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Start integration container
+        run: docker compose -f docker-compose.integration.yml up -d
+
+      - name: Wait for Frappe site
+        run: |
+          BENCH="/home/frappe/frappe-bench"
+          PYTHON="$BENCH/env/bin/python"
+          for i in $(seq 1 40); do
+            if docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+              bash -c "mkdir -p $BENCH/dev.localhost/logs /home/frappe/logs && \
+              $PYTHON -c \"
+          import frappe
+          frappe.init(site='dev.localhost', sites_path='$BENCH/sites')
+          frappe.connect()
+          frappe.db.sql('SELECT 1')
+          frappe.destroy()
+          print('ready')
+          \"" 2>/dev/null; then
+              echo "Site ready"
+              exit 0
+            fi
+            echo "  attempt $i/40..."
+            sleep 10
+          done
+          echo "FATAL: site not ready" && exit 1
+
+      - name: Bootstrap ERPNext test data
+        run: |
+          BENCH="/home/frappe/frappe-bench"
+          PYTHON="$BENCH/env/bin/python"
+          HAS_COMPANY=$(docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+            "$PYTHON" -c "
+          import frappe
+          frappe.init(site='dev.localhost', sites_path='$BENCH/sites')
+          frappe.connect()
+          print(frappe.db.count('Company'))
+          frappe.destroy()
+          " 2>/dev/null || echo "0")
+          if [ "$HAS_COMPANY" = "0" ]; then
+            echo "No Company — bootstrapping ERPNext test data"
+            docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+              bash -c "cd $BENCH && bench --site dev.localhost execute erpnext.setup.utils.before_tests"
+          fi
+
+      - name: Install library and test dependencies
+        run: |
+          docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+            /home/frappe/frappe-bench/env/bin/pip install --quiet /mnt/lib pytest pytest-cov
+
+      - name: Run integration tests with coverage
+        run: |
+          docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+            /home/frappe/frappe-bench/env/bin/python -m pytest \
+              /mnt/lib/tests/integration/ \
+              --confcutdir=/mnt/lib/tests/integration \
+              -c /mnt/lib/tests/integration/pytest.ini \
+              --cov=frappe_microservice \
+              --cov-report=term-missing \
+              --cov-branch \
+              -v --tb=short
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.integration.yml down -v
+
+  build:
+    needs: [test, integration-test]
     runs-on: ubuntu-latest
     permissions:
       contents: read

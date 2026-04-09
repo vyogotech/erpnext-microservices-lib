@@ -88,6 +88,20 @@ class TestMicroserviceAppAuth:
             
             assert username == 'user@example.com'
             assert error is None
+
+    @patch('requests.get')
+    def test_validate_session_with_x_frappe_sid_header(self, mock_get, app):
+        """Mobile clients may send X-Frappe-SID when Cookie is not available to fetch."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'message': 'user@example.com'}
+        mock_get.return_value = mock_response
+
+        with app.flask_app.test_request_context(headers={'X-Frappe-SID': 'header-sid-abc'}):
+            username, error = app._validate_session()
+
+            assert username == 'user@example.com'
+            assert error is None
     
     def test_validate_session_no_auth(self, app):
         """Test session validation with no authentication"""

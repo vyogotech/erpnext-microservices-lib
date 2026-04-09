@@ -1,0 +1,8 @@
+services:
+  dev-central-site:
+    image: docker.io/vyogo/erpnext:sne-version-16
+    ports:
+      - "8080:8000"
+    command: ["/usr/libexec/s2i/run"]
+    volumes:
+      - .:/mnt/lib

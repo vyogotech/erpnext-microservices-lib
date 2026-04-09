@@ -332,12 +332,18 @@ def test_tenant_db_update_doc_basic():
     db = TenantAwareDB(lambda: "tenant-1")
     doc = MagicMock()
     doc.tenant_id = "tenant-1"
+
+    def _apply_update(d):
+        for k, v in d.items():
+            setattr(doc, k, v)
+
+    doc.update = MagicMock(side_effect=_apply_update)
     frappe.get_doc.return_value = doc
-    
+
     db.update_doc("Sales Order", "SO-001", {"status": "Draft"})
-    
-    # Should have called save
-    assert doc.save.called or True  # Always true, just exercise the path
+
+    doc.update.assert_called_once_with({"status": "Draft"})
+    doc.save.assert_called_once()
 
 
 def test_tenant_db_insert_doc_with_explicit_tenant():

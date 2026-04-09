@@ -637,8 +637,8 @@ See the `examples/` directory for complete examples:
 # Install in development mode
 pip install -e ".[dev]"
 
-# Run tests
-pytest
+# Run unit tests (excludes integration tests)
+pytest -m "not integration" tests/
 
 # Format code
 black frappe_microservice/
@@ -646,6 +646,39 @@ black frappe_microservice/
 # Lint
 flake8 frappe_microservice/
 ```
+
+### Integration Tests
+
+Integration tests run against a real Frappe/ERPNext container to validate CRUD
+operations, child table handling, and tenant isolation without mocks.
+
+**Prerequisites:** Docker (or Podman) must be available.
+
+```bash
+# Run the full cycle: start container → test → tear down
+./scripts/run_integration_tests.sh
+
+# Keep the container running after tests (useful for debugging)
+KEEP_RUNNING=1 ./scripts/run_integration_tests.sh
+```
+
+The script uses `docker-compose.integration.yml`, which starts a single
+`vyogo/erpnext:sne-version-16` container with the library mounted at `/mnt/lib`.
+
+### CI/CD Pipeline
+
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs three jobs in
+sequence:
+
+```
+test  →  integration-test  →  build
+```
+
+| Job | What it does |
+|-----|--------------|
+| **test** | Unit tests (pytest) and BDD tests (behave) on a bare Python 3.10 runner |
+| **integration-test** | Spins up the ERPNext container, installs the library, and runs `tests/integration/` with `--cov` coverage |
+| **build** | Builds and pushes the container image to GHCR (only after both test jobs pass) |
 
 ## License
 

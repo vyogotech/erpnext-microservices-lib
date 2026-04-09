@@ -1,142 +1,40 @@
 {
   "edges": [
     {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_create_instance",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "app",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_hooks_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_set_depth"
-    },
-    {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "decorator",
-      "to_file": "frappe_microservice/app.py",
-      "to_func": "wrapper"
-    },
-    {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_controller_registry_alias_methods",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
       "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_lifecycle_after_save",
+      "from_func": "test_controller_lifecycle_on_cancel",
       "to_file": "tests/test_final_coverage.py",
       "to_func": "create_test_controller_class"
     },
     {
       "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_before_validate",
+      "from_func": "test_controller_before_delete",
       "to_file": "frappe_microservice/controller.py",
       "to_func": "DocumentController"
     },
     {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_isolation_timing_patch_before_init",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "tracked_hooks"
-    },
-    {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_create_site_config_writes_file",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "create_site_config"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_full_init_sequence_via_before_request",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "fake_connect"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_one_app_getmembers_fails_other_apps_still_loaded",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "append_hook"
-    },
-    {
-      "from_file": "tests/test_tenant_aware_db.py",
-      "from_func": "test_get_doc_hooks_handles_non_dict_return",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_import_error_for_one_app_skipped_no_raise",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "get_module"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_duplicate_apps_in_apps_txt",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_isolation_timing_patch_before_init",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "tracked_connect"
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_tenant_signup_flow",
+      "to_file": "tests/test_integration.py",
+      "to_func": "base_url"
     },
     {
       "from_file": "tests/test_controllers.py",
-      "from_func": "test_auto_discover_controllers_nonexistent_directory",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_auto_discover_controllers_non_documentcontroller_class",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_allowed_app_import_error_becomes_attribute_error",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_central.py",
-      "from_func": "test_central_client_methods",
-      "to_file": "frappe_microservice/central.py",
-      "to_func": "CentralSiteClient"
-    },
-    {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_document_controller_helpers",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_returns_503_when_init_fails",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
+      "from_func": "test_get_value_before_save_no_attr",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "TestController"
     },
     {
       "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_document_controller_has_value_changed_none",
+      "from_func": "test_document_controller_getattr_private",
       "to_file": "frappe_microservice/controller.py",
       "to_func": "DocumentController"
     },
     {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_hooks_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "microservice_load_app_hooks"
+      "from_file": "frappe_microservice/background.py",
+      "from_func": "_start_rq_worker",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_run_worker"
     },
     {
       "from_file": "frappe_microservice/entrypoint.py",
@@ -145,46 +43,304 @@
       "to_func": "main"
     },
     {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "decorator",
-      "to_file": "frappe_microservice/tenant.py",
-      "to_func": "get_user_tenant_id"
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_get_with_none_default",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
     },
     {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "make_update_handler",
-      "to_file": "frappe_microservice/resources.py",
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_socketio_does_not_call_restore",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_filename_to_classname_conversion",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "scripts/repro_presync_logs_enoent.py",
+      "from_func": "main",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "create_site_config"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "_patch_version_session_data",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "_safe_set_impersonator"
+    },
+    {
+      "from_file": "frappe_microservice/controller.py",
+      "from_func": "__init__",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "set"
+    },
+    {
+      "from_file": "tests/test_central.py",
+      "from_func": "test_central_client_missing_url",
+      "to_file": "frappe_microservice/central.py",
+      "to_func": "CentralSiteClient"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_isolation_timing_patch_before_init",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "tracked_patch_app"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_app_modules_is_none",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_hooks_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_get_depth"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_get_attr_raises_for_non_allowed_apps",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_error_in_one_fixture_does_not_block_others",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "mock_import_fn"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_get_set_methods",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "TestController"
+    },
+    {
+      "from_file": "tests/test_document_hooks.py",
+      "from_func": "test_register_and_get",
+      "to_file": "tests/test_document_hooks.py",
       "to_func": "handler"
     },
     {
-      "from_file": "frappe_microservice/hooks.py",
-      "from_func": "decorator",
-      "to_file": "frappe_microservice/hooks.py",
-      "to_func": "wrapper"
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "_auto_discover_controllers",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "get_controller_registry"
     },
     {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_generic_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "app"
+      "from_file": "frappe_microservice/background.py",
+      "from_func": "_rq_job_wrapper",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "get_controller_registry"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_service_app_name_always_included",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "cleanup_ghcr.py",
+      "from_func": "<module>",
+      "to_file": "cleanup_ghcr.py",
+      "to_func": "cleanup"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_hooks_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "microservice_get_attr"
     },
     {
       "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_get_attr_blocks_import_from_non_allowed_apps",
+      "from_func": "test_filter_module_maps_with_service_app_modules",
       "to_file": "tests/test_e2e_simulation.py",
       "to_func": "_reset_isolation"
     },
     {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_create_site_config_permission_fallback",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "create_site_config"
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "wrapper",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "get_user_tenant_id"
     },
     {
-      "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_create_site_config_env_dict",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "create_site_config"
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_not_found_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_on_update",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_setup_controllers_no_op",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_get_value_before_save",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "TestController"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_rollback_flag_set_on_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_get_installed_apps_returns_non_sequence_returns_empty_hooks",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_get_doc_hooks_handles_non_dict_return",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "register_resource",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "make_get_handler"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "apply_controller_patch",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "microservice_import_controller"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_scan_discovers_doctype",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_doctype_dir"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_list_orders",
+      "to_file": "tests/test_integration.py",
+      "to_func": "auth_headers"
+    },
+    {
+      "from_file": "frappe_microservice/background.py",
+      "from_func": "enqueue_task",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_rq_job_wrapper"
+    },
+    {
+      "from_file": "tests/test_document_hooks.py",
+      "from_func": "test_run_hooks",
+      "to_file": "tests/test_document_hooks.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_allowed_app_import_error_becomes_attribute_error",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_app_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_service_app_is_importable"
+    },
+    {
+      "from_file": "frappe_microservice/controller.py",
+      "from_func": "make_handler",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_isolation_timing_patch_before_init",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "tracked_hooks"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_shared_db_leaks_central_site_apps",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "register_service_doctypes",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "apply_controller_patch"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_add_comment_method",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "TestController"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "make_get_handler",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "microservice_get_installed_apps",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_deduplicated_filter"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_controller_registry_takes_precedence",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "get_controller_registry"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_before_update",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_fallback_to_base_document",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "raise_import"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "secure_route",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "get_user_tenant_id"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_register_controller_backwards_compat",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_calls_rollback_on_failure",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_rq_job_wrapper"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "decorator",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "get_user_tenant_id"
     },
     {
       "from_file": "tests/test_microservice_app.py",
@@ -193,64 +349,70 @@
       "to_func": "BadHooks"
     },
     {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_production_scenario_with_hooks_and_module_maps_combined",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_register_service_doctypes_errors",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "register_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_get_attr_import_error_becomes_attribute_error",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "raising_get_attr"
     },
     {
       "from_file": "frappe_microservice/resources.py",
-      "from_func": "register_resource",
+      "from_func": "make_list_handler",
       "to_file": "frappe_microservice/resources.py",
-      "to_func": "make_list_handler"
+      "to_func": "handler"
     },
     {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_idempotent_second_call",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "mock_exists"
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_call_delegates_to_flask_app",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
     },
     {
-      "from_file": "tests/test_tenant_aware_db.py",
-      "from_func": "test_get_doc_hooks_returns_empty_on_exception",
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_calls_destroy_on_failure",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_rq_job_wrapper"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_after_update",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "microservice_get_attr",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_get_depth"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_handles_empty_app_modules",
       "to_file": "tests/test_microservice_app.py",
       "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "secure_route",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "decorator"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "register_service_doctypes",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "register_module_for_service"
     },
     {
       "from_file": "tests/test_controllers.py",
-      "from_func": "test_has_value_changed",
+      "from_func": "test_controller_hook_registration",
       "to_file": "tests/test_controllers.py",
-      "to_func": "TestController"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_import_error_for_one_app_skipped_no_raise",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "append_hook"
-    },
-    {
-      "from_file": "tests/test_swagger.py",
-      "from_func": "test_register_resource_docs",
-      "to_file": "tests/test_swagger.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "register_resource",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "make_create_handler"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_installed_apps_raises_returns_empty_hooks",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_document_hooks.py",
-      "from_func": "test_hook_error_handling",
-      "to_file": "tests/test_document_hooks.py",
-      "to_func": "failing_handler"
+      "to_func": "decorator"
     },
     {
       "from_file": "tests/test_controllers.py",
@@ -259,10 +421,82 @@
       "to_func": "decorator"
     },
     {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_success",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "frappe_microservice/tenant.py",
+      "from_func": "insert_doc",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "NullContext"
+    },
+    {
+      "from_file": "load_test_signup.py",
+      "from_func": "run_load_test",
+      "to_file": "load_test_signup.py",
+      "to_func": "make_signup_request"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_imports_json_files",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_fixture_dir"
+    },
+    {
       "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_attr_import_error_becomes_attribute_error",
+      "from_func": "test_intersects_with_load_framework_hooks",
       "to_file": "tests/test_microservice_app.py",
-      "to_func": "raising_get_attr"
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_auto_discover_controllers_invalid_controller_class",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_commits_after_creation",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_doctype_dir"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_main_default_workers_and_timeout",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "fake_execvpe"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "register_resource",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "make_update_handler"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_discover_controllers_alias",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_controller_hook_registration",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "_register_controller_hooks"
+    },
+    {
+      "from_file": "tests/test_central.py",
+      "from_func": "test_central_client_methods",
+      "to_file": "frappe_microservice/central.py",
+      "to_func": "CentralSiteClient"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_get_doc_hooks_filtering_logic",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "MicroserviceApp"
     },
     {
       "from_file": "tests/test_microservice_auth.py",
@@ -272,31 +506,91 @@
     },
     {
       "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_isolation_timing_patch_before_init",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "tracked_init"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_handles_none_app_modules",
+      "from_func": "test_frappe_always_first",
       "to_file": "tests/test_microservice_app.py",
       "to_func": "_reset_microservice_guards"
     },
     {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_apps_txt_is_empty",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
       "from_file": "frappe_microservice/isolation.py",
-      "from_func": "microservice_get_attr",
+      "from_func": "presync_service_doctypes",
       "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_get_depth"
+      "to_func": "_ensure_module_def_record"
+    },
+    {
+      "from_file": "tests/test_controller_logging.py",
+      "from_func": "test_register_controller_uses_logging",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_get_attr_reentrancy_depth_guard_avoids_recursion",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_set_depth"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_get_attr_catches_app_not_installed_error",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "raising_get_attr"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "setup_method",
+      "to_file": "tests/test_background_rq.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_load_framework_hooks_none_mode",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
     },
     {
       "from_file": "tests/test_controllers.py",
-      "from_func": "test_get_set_methods",
+      "from_func": "test_getattr_with_private_attributes",
       "to_file": "tests/test_controllers.py",
       "to_func": "TestController"
     },
     {
+      "from_file": "frappe_microservice/tenant.py",
+      "from_func": "patch_valid_dict_for_tenant_id",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "_patched_get_valid_dict"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_filename_to_doctype_conversion",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_dict_response_auto_jsonify",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_shared_redis_leaks_module_maps",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
       "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_get_attr_nested_call_from_filters_hooks_no_recursion",
+      "from_func": "test_signup_service_full_init_with_contaminated_redis",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_hooks_with_no_dot_in_handler_pass_through",
       "to_file": "tests/test_e2e_simulation.py",
       "to_func": "_reset_isolation"
     },
@@ -307,136 +601,16 @@
       "to_func": "create_test_controller_class"
     },
     {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_app_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "microservice_get_installed_apps"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_controller_resolution",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "get_controller_registry"
-    },
-    {
       "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_get_all_apps_consistency_with_get_installed_apps",
+      "from_func": "test_production_scenario_no_module_not_found_error",
       "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_list_orders",
-      "to_file": "tests/test_integration.py",
-      "to_func": "base_url"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_get_attr_reentrancy_depth_guard_avoids_recursion",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_set_depth"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_one_app_getmembers_fails_other_apps_still_loaded",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_create_order",
-      "to_file": "tests/test_integration.py",
-      "to_func": "auth_headers"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_getattr_with_private_attributes",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "TestController"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_get_set_methods",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "side_effect"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_controller_registry_takes_precedence",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "raise_import"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_lifecycle_after_insert",
-      "to_file": "tests/test_final_coverage.py",
-      "to_func": "create_test_controller_class"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_non_service_doctype_still_raises",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "raise_import"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_controller_registry_takes_precedence",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "get_controller_registry"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_production_scenario_repeated_requests",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
+      "to_func": "central_doc_hooks"
     },
     {
       "from_file": "tests/test_central.py",
-      "from_func": "test_central_client_lazy_init",
+      "from_func": "test_central_client_config_from_env",
       "to_file": "frappe_microservice/central.py",
       "to_func": "CentralSiteClient"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_get_value_before_save_no_attr",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "TestController"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_health_endpoint_works_after_isolation",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_attr_allows_frappe_and_allowed_apps",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_filename_to_classname_conversion",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_one_app_getmembers_fails_other_apps_still_loaded",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "get_module"
-    },
-    {
-      "from_file": "frappe_microservice/entrypoint.py",
-      "from_func": "run_app",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "create_site_config"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_setup_controllers_with_directory",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "setup_controllers"
     },
     {
       "from_file": "tests/test_controllers.py",
@@ -445,712 +619,10 @@
       "to_func": "DocumentController"
     },
     {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_two_services_different_framework_hooks",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_tenant_aware_db.py",
-      "from_func": "test_get_doc_hooks_returns_empty_on_exception",
-      "to_file": "tests/test_tenant_aware_db.py",
-      "to_func": "exploding_get_doc_hooks"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_get_attr_reentrancy_depth_guard_avoids_recursion",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_isolation_timing_patch_before_init",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "tracked_filter"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_hooks_with_no_dot_in_handler_pass_through",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_lifecycle_methods",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "SalesOrderController"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_attr_import_error_becomes_attribute_error",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_controller_hook_registration",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "decorator"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_reads_filesystem_not_db",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_intersects_with_load_framework_hooks",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_app_modules_is_none",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_registers_module_mapping_when_missing",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "_make_doctype_dir"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_import_error_for_one_app_skipped_no_raise",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_attr_sync",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "SalesOrderController"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_auto_discover_controllers_missing_class",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_tenant_aware_db.py",
-      "from_func": "test_insert_doc_no_tenant_id",
-      "to_file": "tests/test_tenant_aware_db.py",
-      "to_func": "db"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_production_scenario_no_module_not_found_error",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "central_doc_hooks"
-    },
-    {
-      "from_file": "tests/test_controller_logging.py",
-      "from_func": "test_setup_controllers_uses_logging",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_hooks_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "microservice_get_doc_hooks"
-    },
-    {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "secure_route",
-      "to_file": "frappe_microservice/app.py",
-      "to_func": "decorator"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_signup_weak_password",
-      "to_file": "tests/test_integration.py",
-      "to_func": "base_url"
-    },
-    {
-      "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_document_controller_getattr_private",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_permission_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "central",
-      "to_file": "frappe_microservice/central.py",
-      "to_func": "CentralSiteClient"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_idempotency",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_controller_logging.py",
-      "from_func": "test_add_controller_path_uses_logging",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_document_controller_get_method",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_redis_cache_with_new_central_app_added_after_deploy",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_global_registry_functions",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "get_controller_registry"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_hooks_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "microservice_get_attr"
-    },
-    {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "register_resource",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "make_update_handler"
-    },
-    {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "create_microservice",
-      "to_file": "frappe_microservice/app.py",
-      "to_func": "MicroserviceApp"
-    },
-    {
-      "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_document_controller_get_returns_value",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "run",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "create_site_config"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_shared_db_leaks_central_site_apps",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_discover_controllers_alias",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_signup_service_full_init_with_contaminated_redis",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_document_controller_setattr_private",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_auto_discover_controllers_syntax_error_in_file",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_controller_hook_registration",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "mock_on_implementation"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_on_update",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_after_delete",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_filter_module_maps_with_service_app_modules",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_installed_apps_returns_non_sequence_returns_empty_hooks",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_auth_failure",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_creates_doctype_when_missing",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "_make_doctype_dir"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_generic_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_commits_only_when_imported",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "_make_doctype_dir"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_missing_hooks_module_skipped_no_raise",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "append_hook"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_app_modules_with_non_iterable_modules",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_hooks_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_get_depth"
-    },
-    {
-      "from_file": "tests/test_swagger.py",
-      "from_func": "test_swagger_real_integration",
-      "to_file": "tests/test_swagger.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_add_controller_path",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "frappe_microservice/controller.py",
-      "from_func": "_register_controller_hooks",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "tests/test_tenant_aware_db.py",
-      "from_func": "test_add_tenant_filter_system_tenant_blocked",
-      "to_file": "tests/test_tenant_aware_db.py",
-      "to_func": "db"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_app_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "microservice_get_all_apps"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_fallback_to_base_document",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "raise_import"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "get_module",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "BadHooks"
-    },
-    {
-      "from_file": "frappe_microservice/controller.py",
-      "from_func": "_register_controller_hooks",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "make_handler"
-    },
-    {
-      "from_file": "tests/test_swagger.py",
-      "from_func": "test_swagger_initialization",
-      "to_file": "tests/test_swagger.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_create_order",
-      "to_file": "tests/test_integration.py",
-      "to_func": "base_url"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "microservice_get_installed_apps",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_deduplicated_filter"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_setup_controllers_with_directory",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "get_controller_registry"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_dict_response_auto_jsonify",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_validation_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_throw_method",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "secure_route",
-      "to_file": "frappe_microservice/tenant.py",
-      "to_func": "get_user_tenant_id"
-    },
-    {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "make_create_handler",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_auth_failure",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_apps_txt_read_raises_exception",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_throw_method",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "TestController"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_lifecycle_validate",
-      "to_file": "tests/test_final_coverage.py",
-      "to_func": "create_test_controller_class"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_global_registry_functions",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "register_controller"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_registers_module_mapping_when_exists",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "_make_doctype_dir"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "setup_method",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_tenant_signup_flow",
-      "to_file": "tests/test_integration.py",
-      "to_func": "base_url"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_before_update",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_hooks_with_no_dot_in_handler_pass_through",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "doc_hooks_with_plain_handler"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_shared_redis_leaks_module_maps",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_get_attr_catches_app_not_installed_error",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "raising_get_attr"
-    },
-    {
-      "from_file": "tests/test_swagger.py",
-      "from_func": "app",
-      "to_file": "tests/test_swagger.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_full_init_sequence_via_before_request",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "fake_init"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_auto_discover_controllers_skips_private_files",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "microservice_import_controller",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "get_controller_registry"
-    },
-    {
-      "from_file": "frappe_microservice/tenant.py",
-      "from_func": "get_all",
-      "to_file": "frappe_microservice/tenant.py",
-      "to_func": "NullContext"
-    },
-    {
       "from_file": "frappe_microservice/entrypoint.py",
-      "from_func": "create_site_config",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "_write_config_fallback"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_restart_reapplies_isolation_correctly",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_filters_doc_hooks_from_non_allowed_apps",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "fake_get_doc_hooks"
-    },
-    {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_document_controller_attr_sync",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_login_invalid_credentials",
-      "to_file": "tests/test_integration.py",
-      "to_func": "base_url"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_missing_hooks_module_skipped_no_raise",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_production_scenario_with_hooks_and_module_maps_combined",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "fake_doc_hooks"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_commits_after_creation",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "_make_doctype_dir"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_doc_events_from_five_apps_filtered_to_two",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "__init__",
-      "to_file": "frappe_microservice/tenant.py",
-      "to_func": "TenantAwareDB"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_attr_rejects_non_string",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_missing_hooks_module_skipped_no_raise",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "get_module"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_order_service_full_init_with_different_hooks",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_filters_doc_hooks_from_non_allowed_apps",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_isolation_holds_across_three_requests",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "fake_init"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_hooks_resolution",
+      "from_func": "main",
       "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_is_valid_hook"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_all_apps_filtered_leaves_at_least_frappe",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_rollback_flag_set_on_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_get_attr_catches_app_not_installed_error",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_add_comment_method",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "TestController"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_skips_import_when_doctype_exists",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "_make_doctype_dir"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_controller_hook_registration",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "_register_controller_hooks"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_isolation_timing_patch_before_init",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "tracked_patch"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_not_found_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "app"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_permission_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_after_update",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_signup_duplicate_subdomain",
-      "to_file": "tests/test_integration.py",
-      "to_func": "base_url"
-    },
-    {
-      "from_file": "frappe_microservice/tenant.py",
-      "from_func": "get_doc",
-      "to_file": "frappe_microservice/tenant.py",
-      "to_func": "NullContext"
-    },
-    {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_controller_registry_discover_and_setup",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_document_hooks.py",
-      "from_func": "test_run_hooks",
-      "to_file": "tests/test_document_hooks.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "make_get_handler",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "register_resource",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_stale_redis_cache_is_cleaned_by_filter",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
+      "to_func": "presync_service_doctypes"
     },
     {
       "from_file": "tests/test_microservice_app.py",
@@ -1159,194 +631,26 @@
       "to_func": "_reset_microservice_guards"
     },
     {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_rollback_flag_set_on_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "make_delete_handler",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_load_framework_hooks_none_mode",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "frappe_microservice/tenant.py",
-      "from_func": "__init__",
-      "to_file": "frappe_microservice/hooks.py",
-      "to_func": "DocumentHooks"
-    },
-    {
       "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_removes_central_site_modules",
+      "from_func": "test_isolation_timing_patch_before_init",
       "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_controller_logging.py",
-      "from_func": "test_register_controller_uses_logging",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
+      "to_func": "tracked_filter"
     },
     {
       "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_success",
+      "from_func": "test_request_id_propagated",
       "to_file": "tests/test_microservice_auth.py",
       "to_func": "app"
     },
     {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_not_found_error",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_get_with_none_default",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "microservice_get_attr",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_set_depth"
-    },
-    {
-      "from_file": "frappe_microservice/entrypoint.py",
-      "from_func": "main",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "run_app"
-    },
-    {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_login_flow",
-      "to_file": "tests/test_integration.py",
-      "to_func": "base_url"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_auto_discover_controllers_invalid_controller_class",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_run_app_invokes_app_run",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "run_app"
-    },
-    {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_frappe_always_first",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_lifecycle_on_trash",
-      "to_file": "tests/test_final_coverage.py",
-      "to_func": "create_test_controller_class"
-    },
-    {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_controller_registry_filename_helpers",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "microservice_load_app_hooks",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_is_valid_hook"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_auto_discover_controllers_with_valid_file",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_app_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_deduplicated_filter"
-    },
-    {
-      "from_file": "tests/test_document_hooks.py",
-      "from_func": "test_register_and_get",
-      "to_file": "tests/test_document_hooks.py",
-      "to_func": "handler"
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_patch_is_idempotent",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "patch_valid_dict_for_tenant_id"
     },
     {
       "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_production_scenario_no_module_not_found_error",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
-    },
-    {
-      "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_document_controller_has_value_changed_true",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_filename_to_doctype_conversion",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_central.py",
-      "from_func": "test_central_client_missing_url",
-      "to_file": "frappe_microservice/central.py",
-      "to_func": "CentralSiteClient"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_success",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "frappe_microservice/controller.py",
-      "from_func": "make_handler",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_signup_service_full_init_with_contaminated_redis",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "fake_init"
-    },
-    {
-      "from_file": "tests/test_phase1_code_hygiene.py",
-      "from_func": "test_create_site_config_generates_valid_json",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "create_site_config"
-    },
-    {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "make_list_handler",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "handler"
-    },
-    {
-      "from_file": "tests/test_microservice_auth.py",
-      "from_func": "test_secure_route_dict_response_auto_jsonify",
-      "to_file": "tests/test_microservice_auth.py",
-      "to_func": "test_endpoint"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_service_name_with_hyphens_converted_to_underscores",
+      "from_func": "test_two_services_different_framework_hooks",
       "to_file": "tests/test_e2e_simulation.py",
       "to_func": "_reset_isolation"
     },
@@ -1358,15 +662,399 @@
     },
     {
       "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_attr_raises_for_non_allowed_apps",
+      "from_func": "test_get_attr_module_not_found_becomes_attribute_error",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "raising_get_attr"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "central",
+      "to_file": "frappe_microservice/central.py",
+      "to_func": "CentralSiteClient"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_production_scenario_with_hooks_and_module_maps_combined",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_sync_fixtures_from_path",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_get_import_file_by_path"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_presync_explicit_fixtures_path_overrides",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "presync_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_full_init_sequence_via_before_request",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_insert_doc_no_tenant_id",
+      "to_file": "tests/test_tenant_aware_db.py",
+      "to_func": "db"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "make_create_handler",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_restart_reapplies_isolation_correctly",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_create_instance",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_controller_registry_filename_helpers",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_insert_doc_verification_disabled",
+      "to_file": "tests/test_tenant_aware_db.py",
+      "to_func": "db"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_patch_adds_tenant_id_to_valid_dict",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "patch_valid_dict_for_tenant_id"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "make_update_handler",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "tests/test_coverage_gaps.py",
+      "from_func": "test_document_controller_get_with_default",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_auth_failure",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_microservice_app_isolate_apps_filters_hooks",
+      "to_file": "tests/test_additional_coverage.py",
+      "to_func": "fake_get_doc_hooks"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_lifecycle_before_insert",
+      "to_file": "tests/test_final_coverage.py",
+      "to_func": "create_test_controller_class"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_patch_does_not_add_tenant_id_when_absent",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "patch_valid_dict_for_tenant_id"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_doc_events_from_five_apps_filtered_to_two",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_missing_hooks_module_skipped_no_raise",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "append_hook"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_build_config_env_vars",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "_build_config_from_env"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_login_invalid_credentials",
+      "to_file": "tests/test_integration.py",
+      "to_func": "base_url"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_apps_txt_read_raises_exception",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "register_resource",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "make_delete_handler"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_production_scenario_repeated_requests",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_lifecycle_after_insert",
+      "to_file": "tests/test_final_coverage.py",
+      "to_func": "create_test_controller_class"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_calls_log_error_on_failure",
+      "to_file": "tests/test_background_rq.py",
+      "to_func": "failing_task"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_app_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "microservice_get_all_apps"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "microservice_import_controller",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "get_controller_registry"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "make_delete_handler",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_lifecycle_on_trash",
+      "to_file": "tests/test_final_coverage.py",
+      "to_func": "create_test_controller_class"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_throw_method",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "TestController"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_write_config_fallback_oserror",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "_write_config_fallback"
+    },
+    {
+      "from_file": "scripts/repro_presync_logs_enoent.py",
+      "from_func": "<module>",
+      "to_file": "scripts/repro_presync_logs_enoent.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_production_scenario_with_hooks_and_module_maps_combined",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "fake_doc_hooks"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "register_resource",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "make_create_handler"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_hooks_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "microservice_load_app_hooks"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_get_doc_hooks_returns_empty_on_exception",
+      "to_file": "tests/test_tenant_aware_db.py",
+      "to_func": "exploding_get_doc_hooks"
+    },
+    {
+      "from_file": "test_routing_logic.py",
+      "from_func": "test_routing_logic",
+      "to_file": "test_routing_logic.py",
+      "to_func": "MockApp"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_enqueue_task_puts_job_on_queue",
+      "to_file": "tests/test_background_rq.py",
+      "to_func": "my_task"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_attr_sync",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "SalesOrderController"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_stale_redis_cache_is_cleaned_by_filter",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "frappe_microservice/controller.py",
+      "from_func": "_register_controller_hooks",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "create_microservice",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "MicroserviceApp"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_duplicate_apps_in_apps_txt",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_controller_hook_registration",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "mock_on_implementation"
+    },
+    {
+      "from_file": "verify_routes.py",
+      "from_func": "<module>",
+      "to_file": "verify_routes.py",
+      "to_func": "mock_init"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "secure_route",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "wrapper"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_presync_connection_error",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "presync_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_creates_doctype_when_missing",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_doctype_dir"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_success",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_app_modules_with_non_iterable_modules",
       "to_file": "tests/test_microservice_app.py",
       "to_func": "_reset_microservice_guards"
     },
     {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "wrapper",
-      "to_file": "frappe_microservice/tenant.py",
-      "to_func": "get_user_tenant_id"
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_reconnect_when_ping_raises",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "fake_connect"
+    },
+    {
+      "from_file": "load_test_signup.py",
+      "from_func": "<module>",
+      "to_file": "load_test_signup.py",
+      "to_func": "run_load_test"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "register_resource",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "handler"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_add_controller_path",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_sync_fixtures_to_db",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_sync_fixtures_from_path"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_commit_called_on_successful_request",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_get_attr_blocks_import_from_non_allowed_apps",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_handles_none_app_modules",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_get_attr_error_handling",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "MicroserviceApp"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_hooks_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_is_valid_hook"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_hooks_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "microservice_get_doc_hooks"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_full_init_sequence_via_before_request",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "fake_init"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_controller_registry_discover_and_setup",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
     },
     {
       "from_file": "tests/test_coverage_gaps.py",
@@ -1375,38 +1063,542 @@
       "to_func": "DocumentController"
     },
     {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_restart_with_changed_apps_txt",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_controller_registry_takes_precedence",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "raise_import"
     },
     {
       "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_get_attr_module_not_found_becomes_attribute_error",
+      "from_func": "test_one_app_getmembers_fails_other_apps_still_loaded",
       "to_file": "tests/test_microservice_app.py",
-      "to_func": "raising_get_attr"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_document_controller_throw_method",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_apps_txt_is_empty",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_reset_isolation"
+      "to_func": "append_hook"
     },
     {
       "from_file": "tests/test_central.py",
-      "from_func": "test_central_client_explicit_config",
+      "from_func": "test_central_client_lazy_init",
       "to_file": "frappe_microservice/central.py",
       "to_func": "CentralSiteClient"
     },
     {
       "from_file": "tests/test_microservice_app.py",
       "from_func": "test_isolation_timing_patch_before_init",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "tracked_init"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_has_value_changed",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "TestController"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_registers_module_mapping_when_exists",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_doctype_dir"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "microservice_load_app_hooks",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_is_valid_hook"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_signup_duplicate_subdomain",
+      "to_file": "tests/test_integration.py",
+      "to_func": "base_url"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_permission_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_login_flow",
+      "to_file": "tests/test_integration.py",
+      "to_func": "base_url"
+    },
+    {
+      "from_file": "frappe_microservice/site_config.py",
+      "from_func": "create_site_config",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "_write_config_fallback"
+    },
+    {
+      "from_file": "frappe_microservice/tenant.py",
+      "from_func": "get_doc",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "NullContext"
+    },
+    {
+      "from_file": "tests/test_controller_logging.py",
+      "from_func": "test_add_controller_path_uses_logging",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_coverage_gaps.py",
+      "from_func": "test_document_controller_has_value_changed_none",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_lifecycle_methods",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "SalesOrderController"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_calls_destroy_always",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_rq_job_wrapper"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_calls_connect_and_commit",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_rq_job_wrapper"
+    },
+    {
+      "from_file": "frappe_microservice/hooks.py",
+      "from_func": "decorator",
+      "to_file": "frappe_microservice/hooks.py",
+      "to_func": "wrapper"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_register_and_get",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "decorator",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "wrapper"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_before_validate",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_health_endpoint_works_after_isolation",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_connect_called_once_across_multiple_requests",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_global_registry_functions",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "get_controller_registry"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_isolation_timing_patch_before_init",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "test_routing_logic.py",
+      "from_func": "<module>",
+      "to_file": "test_routing_logic.py",
+      "to_func": "test_routing_logic"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_document_controller_helpers",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_swagger.py",
+      "from_func": "app",
+      "to_file": "tests/test_swagger.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "frappe_microservice/resources.py",
+      "from_func": "register_resource",
+      "to_file": "frappe_microservice/resources.py",
+      "to_func": "make_list_handler"
+    },
+    {
+      "from_file": "frappe_microservice/site_config.py",
+      "from_func": "create_site_config",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "_sync_encryption_key"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_idempotent_second_call",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "mock_exists"
+    },
+    {
+      "from_file": "frappe_microservice/controller.py",
+      "from_func": "get_controller_registry",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "scripts/repro_presync_logs_enoent.py",
+      "from_func": "main",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "presync_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_presync_no_fixtures_dir_skips",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "presync_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_one_app_getmembers_fails_other_apps_still_loaded",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_auto_discover_controllers_with_valid_file",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_get_installed_apps_raises_returns_empty_hooks",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_returns_503_when_init_fails",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_idempotency",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_add_tenant_filter_system_tenant_blocked",
+      "to_file": "tests/test_tenant_aware_db.py",
+      "to_func": "db"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_list_orders",
+      "to_file": "tests/test_integration.py",
+      "to_func": "base_url"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_get_doc_hooks_filtering",
+      "to_file": "tests/test_additional_coverage.py",
+      "to_func": "fake_get_doc_hooks"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_main_default_workers_and_timeout",
+      "to_file": "frappe_microservice/entrypoint.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_controller_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "apply_controller_patch"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_signup_weak_password",
+      "to_file": "tests/test_integration.py",
+      "to_func": "base_url"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_get_all_apps_consistency_with_get_installed_apps",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_order_service_full_init_with_different_hooks",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_redis_cache_with_new_central_app_added_after_deploy",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_auto_discover_controllers_nonexistent_directory",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "frappe_microservice/tenant.py",
+      "from_func": "__init__",
+      "to_file": "frappe_microservice/hooks.py",
+      "to_func": "DocumentHooks"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "setup_method",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_create_order",
+      "to_file": "tests/test_integration.py",
+      "to_func": "base_url"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_non_service_doctype_still_raises",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "raise_import"
+    },
+    {
+      "from_file": "tests/test_swagger.py",
+      "from_func": "test_swagger_real_integration",
+      "to_file": "tests/test_swagger.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_auto_discover_controllers_skips_private_files",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "frappe_microservice/background.py",
+      "from_func": "_rq_job_wrapper",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "register_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_production_scenario_no_module_not_found_error",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_main_execs_gunicorn",
+      "to_file": "frappe_microservice/entrypoint.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_auth_failure",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_set_updates_doc",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_imports_multiple_fixtures",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_fixture_dir"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_main_execs_gunicorn",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "fake_execvpe"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_get_attr_allows_frappe_and_allowed_apps",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_register_service_doctypes_loop",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "register_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_throw_method",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_isolation_holds_across_three_requests",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_calls_log_error_on_failure",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_rq_job_wrapper"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_deduplicated_filter",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_service_app_is_importable"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "microservice_get_all_apps",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_deduplicated_filter"
+    },
+    {
+      "from_file": "frappe_microservice/entrypoint.py",
+      "from_func": "main",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "create_site_config"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_get_attr_import_error_becomes_attribute_error",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_auto_discover_controllers_syntax_error_in_file",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "presync_service_doctypes",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_sync_fixtures_from_path"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_main_execs_gunicorn",
+      "to_file": "frappe_microservice/entrypoint.py",
+      "to_func": "main"
+    },
+    {
+      "from_file": "frappe_microservice/site_config.py",
+      "from_func": "create_site_config",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "_build_config_from_env"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_auto_discover_controllers_non_documentcontroller_class",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_full_init_sequence_via_before_request",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "fake_connect"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_import_error_for_one_app_skipped_no_raise",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "append_hook"
+    },
+    {
+      "from_file": "tests/test_coverage_gaps.py",
+      "from_func": "test_document_controller_setattr_private",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_create_site_config_already_exists",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "create_site_config"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "_make_app",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "MicroserviceApp"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_one_app_getmembers_fails_other_apps_still_loaded",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "get_module"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_no_reconnect_when_ping_succeeds",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_get_attr_reentrancy_depth_guard_avoids_recursion",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_hooks_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_set_depth"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_all_apps_filtered_leaves_at_least_frappe",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "run_background_task",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "_task_wrapper"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_register_module_edge_cases",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "register_module_for_service"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_document_controller_attr_sync",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_filters_doc_hooks_from_non_allowed_apps",
       "to_file": "tests/test_microservice_app.py",
       "to_func": "_reset_microservice_guards"
     },
@@ -1417,18 +1609,6 @@
       "to_func": "create_test_controller_class"
     },
     {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_microservice_app_isolate_apps_filters_hooks",
-      "to_file": "tests/test_additional_coverage.py",
-      "to_func": "fake_get_doc_hooks"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_setup_controllers_no_op",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
       "from_file": "tests/test_tenant_aware_db.py",
       "from_func": "test_add_tenant_filter_no_tenant",
       "to_file": "tests/test_tenant_aware_db.py",
@@ -1436,159 +1616,189 @@
     },
     {
       "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_full_init_sequence_via_before_request",
+      "from_func": "test_restart_with_changed_apps_txt",
       "to_file": "tests/test_e2e_simulation.py",
       "to_func": "_reset_isolation"
     },
     {
-      "from_file": "tests/test_central.py",
-      "from_func": "test_central_client_config_from_env",
-      "to_file": "frappe_microservice/central.py",
-      "to_func": "CentralSiteClient"
+      "from_file": "tests/test_controller_logging.py",
+      "from_func": "test_setup_controllers_uses_logging",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
     },
     {
-      "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_rebuilds_reverse_map",
-      "to_file": "tests/test_microservice_app.py",
-      "to_func": "_reset_microservice_guards"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_production_scenario_repeated_requests",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "fake_init"
-    },
-    {
-      "from_file": "frappe_microservice/tenant.py",
-      "from_func": "insert_doc",
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "_initialize_frappe",
       "to_file": "frappe_microservice/tenant.py",
-      "to_func": "NullContext"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_lifecycle_on_cancel",
-      "to_file": "tests/test_final_coverage.py",
-      "to_func": "create_test_controller_class"
-    },
-    {
-      "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_doc_events_from_five_apps_filtered_to_two",
-      "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "central_site_doc_hooks"
-    },
-    {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_list_controllers",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
+      "to_func": "patch_valid_dict_for_tenant_id"
     },
     {
       "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_service_app_name_always_included",
+      "from_func": "test_get_attr_rejects_non_string",
       "to_file": "tests/test_microservice_app.py",
       "to_func": "_reset_microservice_guards"
     },
     {
-      "from_file": "tests/test_integration.py",
-      "from_func": "test_list_orders",
-      "to_file": "tests/test_integration.py",
-      "to_func": "auth_headers"
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "__init__",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "TenantAwareDB"
     },
     {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_get_value_before_save",
-      "to_file": "tests/test_controllers.py",
-      "to_func": "TestController"
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_not_found_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_sync_encryption_key_file_ops",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "_sync_encryption_key"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_generic_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_rollback_flag_set_on_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "app",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_generic_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_rollback_called_when_commit_fails",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
     },
     {
       "from_file": "tests/test_microservice_app.py",
-      "from_func": "test_handles_empty_app_modules",
+      "from_func": "test_import_error_for_one_app_skipped_no_raise",
       "to_file": "tests/test_microservice_app.py",
       "to_func": "_reset_microservice_guards"
     },
     {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_register_and_get",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_set_updates_doc",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
-    },
-    {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_lifecycle_before_insert",
-      "to_file": "tests/test_final_coverage.py",
-      "to_func": "create_test_controller_class"
-    },
-    {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "microservice_get_all_apps",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "_deduplicated_filter"
-    },
-    {
-      "from_file": "frappe_microservice/entrypoint.py",
-      "from_func": "create_site_config",
-      "to_file": "frappe_microservice/entrypoint.py",
-      "to_func": "_build_config_from_env"
-    },
-    {
-      "from_file": "tests/test_service_doctypes.py",
-      "from_func": "test_scan_discovers_doctype",
-      "to_file": "tests/test_service_doctypes.py",
-      "to_func": "_make_doctype_dir"
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_missing_hooks_module_skipped_no_raise",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
     },
     {
       "from_file": "tests/test_e2e_simulation.py",
-      "from_func": "test_isolation_holds_across_three_requests",
+      "from_func": "test_get_attr_catches_app_not_installed_error",
       "to_file": "tests/test_e2e_simulation.py",
       "to_func": "_reset_isolation"
     },
     {
-      "from_file": "frappe_microservice/isolation.py",
-      "from_func": "_patch_controller_resolution",
-      "to_file": "frappe_microservice/isolation.py",
-      "to_func": "microservice_import_controller"
+      "from_file": "tests/test_document_hooks.py",
+      "from_func": "test_hook_error_handling",
+      "to_file": "tests/test_document_hooks.py",
+      "to_func": "failing_handler"
     },
     {
-      "from_file": "tests/test_controllers.py",
-      "from_func": "test_register_controller_backwards_compat",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "ControllerRegistry"
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_connect_called_once_across_multiple_requests",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "patched_restore"
     },
     {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "register_resource",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "make_get_handler"
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_health_does_not_call_restore",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
     },
     {
-      "from_file": "frappe_microservice/resources.py",
-      "from_func": "register_resource",
-      "to_file": "frappe_microservice/resources.py",
-      "to_func": "make_delete_handler"
+      "from_file": "cleanup_ghcr.py",
+      "from_func": "list_package_versions",
+      "to_file": "cleanup_ghcr.py",
+      "to_func": "run_gh_api"
     },
     {
-      "from_file": "tests/test_tenant_aware_db.py",
-      "from_func": "test_insert_doc_verification_disabled",
-      "to_file": "tests/test_tenant_aware_db.py",
-      "to_func": "db"
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_calls_rollback_on_failure",
+      "to_file": "tests/test_background_rq.py",
+      "to_func": "failing_task"
     },
     {
       "from_file": "tests/test_e2e_simulation.py",
       "from_func": "test_get_attr_nested_call_from_filters_hooks_no_recursion",
       "to_file": "tests/test_e2e_simulation.py",
-      "to_func": "_hook_that_calls_get_attr_nested"
+      "to_func": "_reset_isolation"
     },
     {
-      "from_file": "tests/test_additional_coverage.py",
-      "from_func": "test_get_doc_hooks_filtering",
-      "to_file": "tests/test_additional_coverage.py",
-      "to_func": "fake_get_doc_hooks"
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_skips_import_when_doctype_exists",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_doctype_dir"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_request_id_generated",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "cleanup_ghcr.py",
+      "from_func": "cleanup",
+      "to_file": "cleanup_ghcr.py",
+      "to_func": "list_package_versions"
+    },
+    {
+      "from_file": "tests/test_integration.py",
+      "from_func": "test_create_order",
+      "to_file": "tests/test_integration.py",
+      "to_func": "auth_headers"
+    },
+    {
+      "from_file": "tests/test_swagger.py",
+      "from_func": "test_swagger_initialization",
+      "to_file": "tests/test_swagger.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "get_module",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "BadHooks"
+    },
+    {
+      "from_file": "cleanup_ghcr.py",
+      "from_func": "cleanup",
+      "to_file": "cleanup_ghcr.py",
+      "to_func": "delete_version"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_lifecycle_validate",
+      "to_file": "tests/test_final_coverage.py",
+      "to_func": "create_test_controller_class"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_service_name_with_hyphens_converted_to_underscores",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_reset_isolation"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_run_background_task_works_without_rq",
+      "to_file": "tests/test_background_rq.py",
+      "to_func": "task"
     },
     {
       "from_file": "tests/test_microservice_app.py",
@@ -1597,32 +1807,296 @@
       "to_func": "_reset_microservice_guards"
     },
     {
-      "from_file": "tests/test_coverage_gaps.py",
-      "from_func": "test_document_controller_get_with_default",
-      "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
+      "from_file": "tests/test_central.py",
+      "from_func": "test_central_client_explicit_config",
+      "to_file": "frappe_microservice/central.py",
+      "to_func": "CentralSiteClient"
     },
     {
-      "from_file": "frappe_microservice/app.py",
-      "from_func": "secure_route",
-      "to_file": "frappe_microservice/app.py",
-      "to_func": "wrapper"
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "presync_service_doctypes",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_import_doc_suppressing_cache_reset"
     },
     {
-      "from_file": "tests/test_final_coverage.py",
-      "from_func": "test_controller_before_delete",
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_presync_imports_fixtures_from_service_path",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "presync_service_doctypes"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_global_registry_functions",
       "to_file": "frappe_microservice/controller.py",
-      "to_func": "DocumentController"
+      "to_func": "setup_controllers"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_hooks_with_no_dot_in_handler_pass_through",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "doc_hooks_with_plain_handler"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_removes_central_site_modules",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_rebuilds_reverse_map",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "microservice_get_attr",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_set_depth"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_permission_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "app"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_app_is_callable",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
+    },
+    {
+      "from_file": "tests/test_background_rq.py",
+      "from_func": "test_job_wrapper_restores_context",
+      "to_file": "frappe_microservice/background.py",
+      "to_func": "_rq_job_wrapper"
     },
     {
       "from_file": "tests/test_e2e_simulation.py",
       "from_func": "test_allowed_app_import_error_becomes_attribute_error",
       "to_file": "tests/test_e2e_simulation.py",
       "to_func": "raising_get_attr"
+    },
+    {
+      "from_file": "tests/test_coverage_gap.py",
+      "from_func": "test_deduplicated_filter_reorder",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "MicroserviceApp"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_reads_filesystem_not_db",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_registers_module_mapping_when_missing",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_doctype_dir"
+    },
+    {
+      "from_file": "frappe_microservice/controller.py",
+      "from_func": "_register_controller_hooks",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "make_handler"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_document_controller_throw_method",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_isolation_holds_across_three_requests",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "fake_init"
+    },
+    {
+      "from_file": "tests/test_coverage_gaps.py",
+      "from_func": "test_document_controller_has_value_changed_true",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_db_obj_stored_on_instance_not_contextvar",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_import_error_for_one_app_skipped_no_raise",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "get_module"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_missing_hooks_module_skipped_no_raise",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "get_module"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_error_in_one_fixture_does_not_block_others",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_fixture_dir"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_get_set_methods",
+      "to_file": "tests/test_controllers.py",
+      "to_func": "side_effect"
+    },
+    {
+      "from_file": "tests/test_additional_coverage.py",
+      "from_func": "test_controller_registry_alias_methods",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_production_scenario_repeated_requests",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "fake_init"
+    },
+    {
+      "from_file": "tests/test_service_doctypes.py",
+      "from_func": "test_commits_only_when_imported",
+      "to_file": "tests/test_service_doctypes.py",
+      "to_func": "_make_doctype_dir"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_auto_discover_controllers_missing_class",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_validation_error",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "verify_routes.py",
+      "from_func": "<module>",
+      "to_file": "frappe_microservice/app.py",
+      "to_func": "create_microservice"
+    },
+    {
+      "from_file": "frappe_microservice/tenant.py",
+      "from_func": "get_all",
+      "to_file": "frappe_microservice/tenant.py",
+      "to_func": "NullContext"
+    },
+    {
+      "from_file": "tests/test_microservice_app.py",
+      "from_func": "test_filters_doc_hooks_from_non_allowed_apps",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "fake_get_doc_hooks"
+    },
+    {
+      "from_file": "tests/test_coverage_gaps.py",
+      "from_func": "test_document_controller_get_returns_value",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "tests/test_coverage_gaps.py",
+      "from_func": "test_document_controller_get_method",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "cleanup_ghcr.py",
+      "from_func": "delete_version",
+      "to_file": "cleanup_ghcr.py",
+      "to_func": "run_gh_api"
+    },
+    {
+      "from_file": "tests/test_tenant_aware_db.py",
+      "from_func": "test_get_doc_hooks_returns_empty_on_exception",
+      "to_file": "tests/test_microservice_app.py",
+      "to_func": "_reset_microservice_guards"
+    },
+    {
+      "from_file": "tests/test_db_connection_reuse.py",
+      "from_func": "test_reconnect_when_ping_raises",
+      "to_file": "tests/test_db_connection_reuse.py",
+      "to_func": "_make_app"
+    },
+    {
+      "from_file": "frappe_microservice/app.py",
+      "from_func": "_initialize_frappe",
+      "to_file": "frappe_microservice/site_config.py",
+      "to_func": "create_site_config"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_get_attr_nested_call_from_filters_hooks_no_recursion",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "_hook_that_calls_get_attr_nested"
+    },
+    {
+      "from_file": "tests/test_microservice_auth.py",
+      "from_func": "test_secure_route_dict_response_auto_jsonify",
+      "to_file": "tests/test_microservice_auth.py",
+      "to_func": "test_endpoint"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_app_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "microservice_get_installed_apps"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_lifecycle_after_save",
+      "to_file": "tests/test_final_coverage.py",
+      "to_func": "create_test_controller_class"
+    },
+    {
+      "from_file": "tests/test_final_coverage.py",
+      "from_func": "test_controller_after_delete",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "DocumentController"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "apply_controller_patch",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "get_controller_registry"
+    },
+    {
+      "from_file": "tests/test_e2e_simulation.py",
+      "from_func": "test_doc_events_from_five_apps_filtered_to_two",
+      "to_file": "tests/test_e2e_simulation.py",
+      "to_func": "central_site_doc_hooks"
+    },
+    {
+      "from_file": "frappe_microservice/isolation.py",
+      "from_func": "_patch_app_resolution",
+      "to_file": "frappe_microservice/isolation.py",
+      "to_func": "_deduplicated_filter"
+    },
+    {
+      "from_file": "tests/test_controllers.py",
+      "from_func": "test_list_controllers",
+      "to_file": "frappe_microservice/controller.py",
+      "to_func": "ControllerRegistry"
+    },
+    {
+      "from_file": "tests/test_swagger.py",
+      "from_func": "test_register_resource_docs",
+      "to_file": "tests/test_swagger.py",
+      "to_func": "app"
     }
   ],
   "languages": [
     "python"
   ],
-  "timestamp": 1773136874.272637
+  "timestamp": 1775039357.24969
 }
