@@ -521,9 +521,9 @@ class TenantAwareDB:
         Hook execution order:
         1. [GET DOC - verify tenant]
         2. before_update (custom)
-        3. validate (Frappe + custom)
-        4. before_save (Frappe + custom)
-        5. [DB UPDATE]
+        3. doc.update(data)
+        4. before_validate (custom) — same as insert_doc so e.g. Purchase Invoice can resolve/create Supplier
+        5. validate / before_save / on_update (Frappe + custom via doc.save())
         6. after_save (Frappe + custom)
         7. after_update (custom)
 
@@ -551,6 +551,9 @@ class TenantAwareDB:
             self.hooks.run_hooks(doc, 'before_update')
 
         doc.update(data)
+
+        if run_hooks:
+            self.hooks.run_hooks(doc, 'before_validate')
 
         doc.save(**kwargs)
 
