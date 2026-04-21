@@ -56,6 +56,9 @@ def main():
         '--worker-class=sync',
         '--worker-tmp-dir=/dev/shm',
         f'--timeout={timeout}',
+        # Log to stdout/stderr so Kubernetes picks up every request (kubectl logs).
+        '--access-logfile=-',
+        '--error-logfile=-',
         service_app,
     ]
 

@@ -200,6 +200,8 @@ class TestEntrypointGunicorn:
         assert '--worker-class=sync' in executed['args']
         assert '--worker-tmp-dir=/dev/shm' in executed['args']
         assert '--timeout=60' in executed['args']
+        assert '--access-logfile=-' in executed['args']
+        assert '--error-logfile=-' in executed['args']
         assert 'server:app' in executed['args']
         assert str(tmp_path) in executed['env']['PYTHONPATH']
 

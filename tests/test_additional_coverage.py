@@ -210,6 +210,44 @@ def test_create_site_config_writes_file(tmp_path, monkeypatch):
     assert loaded["db_name"] == "testdb"
 
 
+def test_create_site_config_refreshes_stale_file_from_env(tmp_path, monkeypatch):
+    """Image-baked site_config.json must be overwritten when DB_NAME is set in env."""
+    monkeypatch.setenv("FRAPPE_SITES_PATH", str(tmp_path))
+    monkeypatch.setenv("FRAPPE_SITE", "test.local")
+    site_path = tmp_path / "test.local"
+    site_path.mkdir(parents=True)
+    stale = {
+        "db_host": "mariadb",
+        "db_port": 3306,
+        "db_name": "",
+        "db_user": "frappe",
+        "db_password": "changeme",
+        "redis_cache": "redis://redis:6379",
+        "redis_queue": "redis://redis:6379",
+        "redis_socketio": "redis://redis:6379",
+    }
+    config_path = site_path / "site_config.json"
+    config_path.write_text(json.dumps(stale))
+
+    monkeypatch.setenv("DB_HOST", "mariadb")
+    monkeypatch.setenv("DB_NAME", "realdb")
+    monkeypatch.setenv("DB_USER", "realuser")
+    monkeypatch.setenv("DB_PASSWORD", "realpass")
+
+    with patch(
+        "frappe_microservice.site_config._sync_encryption_key",
+        side_effect=lambda c, _: c,
+    ):
+        cfg = create_site_config()
+
+    assert cfg["db_name"] == "realdb"
+    assert cfg["db_user"] == "realuser"
+    assert cfg["db_password"] == "realpass"
+    loaded = json.loads(config_path.read_text())
+    assert loaded["db_name"] == "realdb"
+    assert loaded["db_user"] == "realuser"
+
+
 def test_create_site_config_permission_fallback(monkeypatch, tmp_path):
     monkeypatch.setenv("FRAPPE_SITES_PATH", "/app/sites")
     monkeypatch.setenv("FRAPPE_SITE", "dev.localhost")
@@ -239,6 +277,8 @@ def test_main_execs_gunicorn(monkeypatch):
         assert "--workers=2" in argv
         assert "server:app" in argv
         assert "--worker-class=sync" in argv
+        assert "--access-logfile=-" in argv
+        assert "--error-logfile=-" in argv
 
 
 def test_microservice_app_health_route():
@@ -298,6 +338,48 @@ def test_microservice_app_register_resource_crud(monkeypatch):
     # Delete
     res = client.delete("/api/resource/sales-order/SO-001")
     assert res.status_code == 200
+
+
+def test_parse_fields_query_param():
+    from frappe_microservice.resources import _parse_fields_query_param
+
+    assert _parse_fields_query_param('["name","customer","status"]') == [
+        "name",
+        "customer",
+        "status",
+    ]
+    assert _parse_fields_query_param("name,customer, status") == [
+        "name",
+        "customer",
+        "status",
+    ]
+    assert _parse_fields_query_param("name") == ["name"]
+    assert _parse_fields_query_param("*") == ["*"]
+    assert _parse_fields_query_param("  ") == []
+
+
+def test_microservice_app_register_resource_list_json_fields(monkeypatch):
+    app = MicroserviceApp("test-service", central_site_url="http://central")
+    app.flask_app.testing = True
+    monkeypatch.setattr(app, "_validate_session", lambda: ("user@example.com", None))
+
+    captured: dict = {}
+
+    def get_all(dt, filters=None, **kwargs):
+        captured["fields"] = kwargs.get("fields")
+        return [{"name": "INV-1"}]
+
+    app.tenant_db.get_all = get_all
+    app.tenant_db.get_doc = MagicMock()
+    app.register_resource("Sales Invoice")
+
+    client = app.flask_app.test_client()
+    res = client.get(
+        "/api/resource/sales-invoice",
+        query_string={"fields": '["name","customer","posting_date"]'},
+    )
+    assert res.status_code == 200
+    assert captured["fields"] == ["name", "customer", "posting_date"]
 
 
 def test_microservice_app_register_resource_errors(monkeypatch):
