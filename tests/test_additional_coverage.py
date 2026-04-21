@@ -356,6 +356,9 @@ def test_parse_fields_query_param():
     assert _parse_fields_query_param("name") == ["name"]
     assert _parse_fields_query_param("*") == ["*"]
     assert _parse_fields_query_param("  ") == []
+    # Flask/Werkzeug may pass query strings percent-encoded
+    enc = "%5B%22name%22%2C%22customer%22%5D"
+    assert _parse_fields_query_param(enc) == ["name", "customer"]
 
 
 def test_microservice_app_register_resource_list_json_fields(monkeypatch):

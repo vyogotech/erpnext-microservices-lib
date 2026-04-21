@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping, Sequence
+from urllib.parse import unquote_plus
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -59,6 +60,24 @@ def _format_timedelta_safe(obj: timedelta) -> str:
         return out if isinstance(out, str) else str(out)
     except Exception:
         return str(obj)
+
+
+def _parse_fields_query_param(raw: str) -> list[str]:
+    """Parse Frappe-style ``fields`` query: JSON array or comma-separated column names."""
+    raw = unquote_plus((raw or "").strip())
+    if not raw:
+        return []
+    if raw.startswith("["):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(x).strip() for x in parsed if str(x).strip()]
+        return [p.strip() for p in raw.split(",") if p.strip()]
+    if "," in raw:
+        return [p.strip() for p in raw.split(",") if p.strip()]
+    return [raw]
 
 
 def _make_json_safe(obj):
@@ -135,8 +154,12 @@ class ResourceMixin:
                             if key not in _RESOURCE_LIST_META_KEYS:
                                 filters[key] = value
 
-                        fields = request.args.get(
-                            'fields', '*').split(',') if request.args.get('fields') else None
+                        fields_raw = unquote_plus(
+                            (request.args.get("fields") or "").strip()
+                        )
+                        fields = (
+                            _parse_fields_query_param(fields_raw) if fields_raw else None
+                        )
                         try:
                             if request.args.get("limit_page_length") is not None:
                                 limit = int(request.args.get("limit_page_length"))
@@ -182,7 +205,7 @@ class ResourceMixin:
               - name: fields
                 in: query
                 type: string
-                description: Comma-separated list of fields to return
+                description: 'JSON array (Frappe) e.g. ["name","customer"] or comma-separated names'
               - name: limit
                 in: query
                 type: integer

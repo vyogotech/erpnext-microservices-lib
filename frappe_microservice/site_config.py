@@ -35,11 +35,17 @@ def _build_config_from_env(
     resolved_redis_cache_host = os.getenv('REDIS_CACHE_HOST', resolved_redis_host)
     resolved_redis_namespace = os.getenv('REDIS_NAMESPACE', None)
 
+    # Frappe / Invox convention: site DB user equals db_name (see central-site
+    # container-entrypoint writing /secrets/db.env). Defaulting to "frappe"
+    # when DB_USER is unset causes MySQL 1045 against a site-named user only.
+    resolved_db_name = (db_name or os.getenv('DB_NAME', '')).strip()
+    resolved_db_user = (db_user or os.getenv('DB_USER', '') or resolved_db_name or 'frappe').strip()
+
     config = {
         'db_host': db_host or os.getenv('DB_HOST', 'localhost'),
         'db_port': int(db_port or os.getenv('DB_PORT', '3306')),
-        'db_name': db_name or os.getenv('DB_NAME', ''),
-        'db_user': db_user or os.getenv('DB_USER', 'frappe'),
+        'db_name': resolved_db_name,
+        'db_user': resolved_db_user,
         'db_password': db_password or os.getenv('DB_PASSWORD', 'changeme'),
         'redis_cache': f"redis://{resolved_redis_cache_host}:{resolved_redis_port}",
         'redis_queue': f"redis://{resolved_redis_queue_host}:{resolved_redis_port}",
@@ -131,6 +137,49 @@ def create_site_config(
     if os.path.exists(config_file):
         with open(config_file, 'r') as f:
             config = json.load(f)
+        # Stale site_config (e.g. image defaults) must not win over /secrets/db.env:
+        # load-secrets runs before Gunicorn, so DB_* are in the environment here.
+        env_config = _build_config_from_env(
+            db_host, db_port, db_name, db_user, db_password, redis_host, redis_port,
+        )
+        env_db_name_set = (os.getenv("DB_NAME") or "").strip()
+        if env_db_name_set and not (env_config.get("db_name") or "").strip():
+            env_config = dict(env_config)
+            env_config["db_name"] = env_db_name_set
+            if not (env_config.get("db_user") or "").strip():
+                env_config["db_user"] = (
+                    (os.getenv("DB_USER") or "").strip() or env_db_name_set or "frappe"
+                )
+
+        disk_db = (config.get("db_name") or "").strip()
+        env_db = (env_config.get("db_name") or "").strip()
+        # Merge when env resolved a db name, or when disk has no db name but DB_NAME
+        # is set in the environment (image defaults + later-injected secrets).
+        # Also merge when DB_USER/DB_PASSWORD are set so user/password refresh matches.
+        env_signals = any(
+            (os.getenv(k) or "").strip() for k in ("DB_USER", "DB_PASSWORD")
+        )
+        if env_db or (not disk_db and env_db_name_set) or env_signals:
+            merged = False
+            for key in (
+                "db_host",
+                "db_port",
+                "db_name",
+                "db_user",
+                "db_password",
+                "redis_cache",
+                "redis_queue",
+                "redis_socketio",
+            ):
+                if config.get(key) != env_config.get(key):
+                    config[key] = env_config[key]
+                    merged = True
+            if merged:
+                try:
+                    with open(config_file, "w") as f:
+                        json.dump(config, f, indent=2)
+                except OSError:
+                    pass
         return _sync_encryption_key(config, config_file)
 
     config = _build_config_from_env(
