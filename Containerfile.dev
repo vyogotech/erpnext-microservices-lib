@@ -1,0 +1,135 @@
+# frappe-microservice-lib/Containerfile.dev
+#
+# Dev base image for local microservices (podman compose / Containerfile.dev in services).
+# Build: podman build -f Containerfile.dev -t localhost/frappe-microservices-base:latest .
+# Services inherit CMD from load-secrets.sh (waits for /secrets/db.env, then starts SERVICE_APP).
+
+# Builder stage uses Python 3.14 for Frappe v16 compatibility
+FROM python:3.14-slim AS builder
+
+# Install ONLY build tools (will be discarded in final image)
+# AllowDowngrade: when trixie-updates/security metadata fails to refresh, main vs. updates can
+# briefly disagree on libssl3t64 vs. libssl-dev versions; apt then errors on held packages.
+# If apt still fails with sqv "Not live until …Z", sync time on the host (NTP) and rebuild.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    -o Acquire::AllowDowngrade=true \
+    git \
+    pkg-config \
+    gcc \
+    libssl-dev \
+    default-libmysqlclient-dev
+
+# Create virtual environment for cleaner installation
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Frozen version pins — explicitly aligned with central-site (frappe/erpnext:v16.29.0)
+ARG FRAPPE_VERSION=v16.28.0
+ARG ERPNEXT_VERSION=v16.29.0
+
+# Podman-on-macOS (and some CI) builds sometimes get a resolv.conf that cannot resolve github.com;
+# prepend public DNS so git clone inside pip succeeds (append is ignored if file is read-only).
+RUN set -e; \
+    for ns in 8.8.8.8 8.8.4.4; do \
+      grep -q "^nameserver[[:space:]]*${ns}" /etc/resolv.conf 2>/dev/null || \
+        { echo "nameserver ${ns}" >> /etc/resolv.conf 2>/dev/null || true; }; \
+    done
+
+# Install frappe and erpnext framework from git (uses persistent pip cache mount to avoid re-downloading git/wheels)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install git+https://github.com/frappe/frappe.git@${FRAPPE_VERSION} && \
+    pip install git+https://github.com/frappe/erpnext.git@${ERPNEXT_VERSION} && \
+    #remove all client side files for erpnext and frappe to reduce image size - remove  public folder and .js, .css, .map files
+    find /opt/venv/lib/python3.14/site-packages/frappe/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
+    find /opt/venv/lib/python3.14/site-packages/erpnext/public -type f \( -name '*.js' -o -name '*.css' -o -name '*.map' \) -delete && \
+    rm -rf /opt/venv/lib/python3.14/site-packages/frappe/public/build && \
+    rm -rf /opt/venv/lib/python3.14/site-packages/erpnext/public/build
+# Patch Frappe: bundled_asset() must handle get_assets_json() returning None (headless microservice)
+RUN sed -i 's/bundled_assets = get_assets_json()/bundled_assets = get_assets_json() or {}/' /opt/venv/lib/python3.14/site-packages/frappe/utils/jinja_globals.py
+
+# Pre-install third-party Python dependencies before copying source code to preserve build cache across local code edits
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install \
+    gunicorn>=22.0 \
+    pyjwt==2.8.0 \
+    requests==2.32.0 \
+    redis==7.2.1 \
+    pymysql==1.1.1
+
+# Install the microservice library
+COPY . /tmp/frappe-microservice-lib
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install /tmp/frappe-microservice-lib && \
+    rm -rf /tmp/frappe-microservice-lib && \
+    find /opt/venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && \
+    find /opt/venv -type f -name '*.pyc' -delete && \
+    find /opt/venv -type f -name '*.pyo' -delete
+
+# Create site structure and link ERPNext as Frappe app
+RUN mkdir -p /logs && \
+    mkdir -p /app/sites/dev.localhost/logs && \
+    mkdir -p /app/sites/dev.localhost/public/files && \
+    mkdir -p /app/sites/dev.localhost/private/files && \
+    mkdir -p /app/sites/dev.localhost/locks && \
+    mkdir -p /app/dev.localhost/logs && \
+    echo "frappe" > /app/sites/apps.txt && \
+    echo "erpnext" >> /app/sites/apps.txt && \
+    echo "tenancy_app" >> /app/sites/apps.txt && \
+    # Link pip-installed ERPNext as Frappe app (no redundant cloning!)
+    mkdir -p /app/sites/apps && \
+    ln -s /opt/venv/lib/python3.14/site-packages/erpnext /app/sites/apps/erpnext && \
+    ln -s /opt/venv/lib/python3.14/site-packages/frappe /app/sites/apps/frappe && \
+    # Create minimal tenancy_app stub (required by ERPNext hooks)
+    mkdir -p /opt/venv/lib/python3.14/site-packages/tenancy_app && \
+    echo "# Minimal stub for ERPNext compatibility" > /opt/venv/lib/python3.14/site-packages/tenancy_app/__init__.py && \
+    echo "app_name = 'tenancy_app'" > /opt/venv/lib/python3.14/site-packages/tenancy_app/hooks.py
+
+# Create utils.py stub
+RUN printf 'class Utils:\n    @staticmethod\n    def set_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        pass\n\n    @staticmethod\n    def get_tenant_id(*args, **kwargs):\n        """Stub function for ERPNext compatibility"""\n        return None\n\n# Also provide module-level functions for backward compatibility\ndef set_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    pass\n\ndef get_tenant_id(*args, **kwargs):\n    """Stub function for ERPNext compatibility"""\n    return None\n' > /opt/venv/lib/python3.14/site-packages/tenancy_app/utils.py
+
+# ============================================
+# STAGE 2: Runtime (Debian slim, stable wheels)
+# ============================================
+FROM python:3.14-slim
+
+# Install ONLY runtime dependencies (no build tools)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    bash \
+    libmariadb3 && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy Python packages from builder (instead of rebuilding)
+COPY --from=builder /opt/venv /opt/venv
+
+# Copy pre-created site structure from builder
+COPY --from=builder /app/sites /app/sites
+COPY --from=builder /app/dev.localhost /app/dev.localhost
+COPY --from=builder /logs /logs
+
+# Set environment variables
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    FRAPPE_SITES_PATH=/app/sites \
+    FRAPPE_SITE=dev.localhost \
+    PYTHONPATH="/app/sites/apps:$PYTHONPATH"
+
+# Writable logs for non-root service containers (OpenShift/K8s dev)
+RUN mkdir -p /app/logs && chmod -R 777 /app /logs
+
+# Copy the shared secrets loader script
+COPY load-secrets.sh /usr/local/bin/load-secrets.sh
+RUN chmod +x /usr/local/bin/load-secrets.sh
+
+# Create secrets mount point
+RUN mkdir -p /secrets
+
+EXPOSE 8000
+
+# Default entrypoint: wait for /secrets/db.env, source it, then run entrypoint.py
+CMD ["/bin/bash", "/usr/local/bin/load-secrets.sh"]

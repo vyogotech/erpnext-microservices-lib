@@ -1,0 +1,20 @@
+services:
+  dev-central-site:
+    # Public "Single Node Environment" image: ERPNext + MariaDB + Redis + nginx
+    # in one container, so the suite needs no registry credentials. Override to
+    # test another line, e.g.
+    #   CENTRAL_SITE_IMAGE=docker.io/vyogo/erpnext:sne-develop
+    #
+    # Must be a v16 line: the library imports frappe.utils.local, which does not
+    # exist in Frappe v15.
+    image: ${CENTRAL_SITE_IMAGE:-docker.io/vyogo/erpnext:sne-version-16}
+    environment:
+      FRAPPE_STREAM_LOGGING: "1"
+      # A stock Frappe/ERPNext site has tenant_id on ~8 tables, so tenant-scoped
+      # writes would fail with OperationalError 1054 on the first child row.
+      # Single-tenant mode is what lets the suite run without a Central Site
+      # tenancy provider installed.
+      MULTI_TENANT: "0"
+    command: ["/usr/libexec/s2i/run"]
+    volumes:
+      - .:/mnt/lib

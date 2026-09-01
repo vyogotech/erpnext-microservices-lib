@@ -1,0 +1,63 @@
+repos:
+  # General Hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+
+  # Security: Gitleaks (Hardcoded Secrets)
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+        stages: [commit]
+
+  # Security: Semgrep (Code Vulnerabilities)
+  - repo: https://github.com/returntocorp/semgrep
+    rev: v1.66.0
+    hooks:
+      - id: semgrep
+        name: semgrep-security
+        args: ['--config=auto', '--error', '--quiet']
+
+  # Code Quality: Complexity and LoC Limits
+  # ATX Standard: 450 lines per file max — microservice files must stay lean.
+  # Cyclomatic Complexity 15 max — split complex functions into smaller units.
+  - repo: local
+    hooks:
+      - id: lizard
+        name: Code Complexity & LoC (Lizard)
+        entry: lizard
+        language: python
+        additional_dependencies: [lizard]
+        # -C 15: Fail if cyclomatic complexity > 15 per function
+        # -L 450: Fail if file length > 450 lines (lean microservice files)
+        # -W: exit non-zero on violation
+        args: ["-C", "15", "-L", "450", "-W"]
+        types_or: [python, javascript, ts, tsx, jsx]
+        # Exclude auto-generated, vendored, migrations, and test fixtures
+        exclude: >
+          (?x)^(
+            .*/node_modules/.*|
+            .*/migrations/.*|
+            .*/vendor/.*|
+            .*\.min\.js$|
+            .*_pb2\.py$|
+            .*/dist/.*|
+            .*/build/.*|
+            .*/\.git/.*
+          )$
+
+  # Linting: Python (Ruff - fast replacement for flake8/black)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.3.3
+    hooks:
+      - id: ruff
+        # No --fix: ruff's autofix removes imports it reads as unused, including
+        # ones that ARE used via a shadowed function-local import. It silently
+        # deleted both imports of verify_tenant_ready in signup-service, leaving
+        # mark_tenant_provisioning_ready() raising NameError at runtime. Report
+        # the finding; let a human decide whether an import is really dead.
+      - id: ruff-format

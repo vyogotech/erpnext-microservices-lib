@@ -1,0 +1,71 @@
+# Frappe/ERPNext dependencies a headless microservice never loads.
+#
+# SINGLE SOURCE OF TRUTH. Read by:
+#   scripts/resolve_frappe_deps.py  -- to filter them out at build time
+#   scripts/check_pruned_deps.py    -- to verify nothing else broke
+#
+# Frappe's dependency list assumes a full Desk install: PDF printing, Excel
+# import, 2FA QR codes, full-text search, an interactive console, Google
+# integrations. See docs/dependency-slimming.md for how this list was measured
+# and for the packages deliberately NOT here.
+#
+# Names are matched case-insensitively with - and _ normalised.
+#
+# One blank-line-separated group per capability.
+#
+# An entry that is not present upstream is a harmless no-op. As of frappe
+# v16.28.0 that is true of `posthog` and `Faker`: frappe's pyproject.toml
+# declares them but the pinned build does not install them. They stay listed so
+# a future version that does ship them is covered. Run resolve_frappe_deps.py to
+# see which entries currently match something.
+
+# Not imported anywhere in Frappe at all
+duckdb
+
+# Google Calendar / Contacts / Drive integrations
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+httplib2
+uritemplate
+
+# Desk-only features
+ldap3
+pycountry
+posthog
+vobject
+rauth
+Faker
+PyQRCode
+websockets
+
+# Interactive console (bench console)
+ipython
+jedi
+parso
+traitlets
+pexpect
+ptyprocess
+executing
+asttokens
+stack-data
+pure-eval
+matplotlib-inline
+prompt_toolkit
+
+# Repo introspection (bench commands, boilerplate generation)
+GitPython
+gitdb
+smmap
+
+# WeasyPrint HTML-to-PDF stack (frappe.utils.weasyprint is lazily imported)
+WeasyPrint
+pydyf
+pyphen
+tinyhtml5
+tinycss2
+cssselect
+fonttools
+Brotli
+zopfli

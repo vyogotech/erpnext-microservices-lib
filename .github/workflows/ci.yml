@@ -1,0 +1,332 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, release, develop, "version-*"]
+    tags: ["v*"]
+  pull_request:
+    branches: [main, release, develop, "version-*"]
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip uninstall -y frappe-microservice || true
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          flake8 frappe_microservice/
+
+      - name: Run TDD Unit Tests (Pytest)
+        run: |
+          PYTHONPATH=. pytest -m "not integration" --alluredir=allure-results tests/
+
+      - name: Run BDD Behavioral Tests (Behave)
+        run: |
+          PYTHONPATH=. behave -f allure_behave.formatter:AllureFormatter -o allure-results features/
+
+      - name: Upload Allure Results
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: allure-results
+          path: allure-results
+          retention-days: 1
+
+  integration-test:
+    needs: test
+    runs-on: ubuntu-latest
+    # No registry credentials: the central-site image is public on Docker Hub.
+    # That is deliberate — GITHUB_TOKEN is restricted on pull requests from
+    # forks, so requiring a login would make this job unrunnable for outside
+    # contributors.
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Docker Compose v2 plugin
+        run: |
+          mkdir -p ~/.docker/cli-plugins/
+          curl -SL https://github.com/docker/compose/releases/download/v2.26.0/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          docker compose version
+
+      - name: Start integration container
+        run: |
+          docker compose -f docker-compose.integration.yml pull
+          docker compose -f docker-compose.integration.yml up -d
+          docker compose -f docker-compose.integration.yml ps
+          docker compose -f docker-compose.integration.yml logs --tail=80 dev-central-site || true
+
+      - name: Wait for Frappe site
+        run: |
+          BENCH="/home/frappe/frappe-bench"
+          PYTHON="$BENCH/env/bin/python"
+          COMPOSE="docker compose -f docker-compose.integration.yml"
+          LAST_ERR=""
+          for i in $(seq 1 40); do
+            if OUT=$($COMPOSE exec -T dev-central-site \
+              bash -c "mkdir -p $BENCH/dev.localhost/logs /home/frappe/logs && \
+              $PYTHON -c \"
+          import frappe
+          frappe.init(site='dev.localhost', sites_path='$BENCH/sites')
+          frappe.connect()
+          frappe.db.sql('SELECT 1')
+          frappe.destroy()
+          print('ready')
+          \"" 2>&1); then
+              echo "$OUT"
+              echo "Site ready"
+              exit 0
+            fi
+            LAST_ERR="$OUT"
+            echo "  attempt $i/40..."
+            if [ "$i" -eq 5 ] || [ "$i" -eq 15 ] || [ "$i" -eq 30 ] || [ "$i" -eq 40 ]; then
+              echo "--- container ps ---"
+              $COMPOSE ps || true
+              echo "--- recent logs ---"
+              $COMPOSE logs --tail=40 dev-central-site || true
+              echo "--- last exec error ---"
+              echo "$LAST_ERR"
+            fi
+            sleep 10
+          done
+          echo "FATAL: site not ready after 40 attempts"
+          echo "$LAST_ERR"
+          $COMPOSE logs --tail=200 dev-central-site || true
+          exit 1
+
+      - name: Bootstrap ERPNext test data
+        run: |
+          BENCH="/home/frappe/frappe-bench"
+          PYTHON="$BENCH/env/bin/python"
+          HAS_COMPANY=$(docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+            "$PYTHON" -c "
+          import frappe
+          frappe.init(site='dev.localhost', sites_path='$BENCH/sites')
+          frappe.connect()
+          print(frappe.db.count('Company'))
+          frappe.destroy()
+          " 2>/dev/null || echo "0")
+          if [ "$HAS_COMPANY" = "0" ]; then
+            echo "No Company — bootstrapping site (legacy before_tests or setup_complete)"
+            docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+              env FRAPPE_SITE=dev.localhost FRAPPE_SITES_PATH="$BENCH/sites" \
+              "$PYTHON" /mnt/lib/scripts/bootstrap_integration_site.py
+          fi
+
+      - name: Install library and test dependencies
+        run: |
+          docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+            /home/frappe/frappe-bench/env/bin/pip install --quiet /mnt/lib pytest pytest-cov
+
+      - name: Run integration tests with coverage
+        run: |
+          docker compose -f docker-compose.integration.yml exec -T dev-central-site \
+            /home/frappe/frappe-bench/env/bin/python -m pytest \
+              /mnt/lib/tests/integration/ \
+              --confcutdir=/mnt/lib/tests/integration \
+              -c /mnt/lib/tests/integration/pytest.ini \
+              --cov=frappe_microservice \
+              --cov-report=term-missing \
+              --cov-branch \
+              -v --tb=short
+
+      - name: Tear down
+        if: always()
+        run: |
+          docker compose -f docker-compose.integration.yml logs --tail=80 dev-central-site 2>/dev/null || true
+          docker compose -f docker-compose.integration.yml down -v
+
+  build:
+    needs: [test, integration-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      # so verify-image can pull exactly what was pushed rather than rebuild it
+      image: ${{ steps.vars.outputs.image_name }}:sha-${{ github.sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Calculate Image Tag & Versions
+        id: vars
+        run: |
+          # Default values aligned with central-site
+          TAG="latest"
+          FRAPPE_VER="v16.28.0"
+          ERPNEXT_VER="v16.29.0"
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            TAG="pr-${{ github.event.number }}"
+            if [[ "${{ github.base_ref }}" == version-15* ]]; then
+              FRAPPE_VER="version-15"
+              ERPNEXT_VER="version-15"
+            elif [[ "${{ github.base_ref }}" == "develop" ]]; then
+              FRAPPE_VER="develop"
+              ERPNEXT_VER="develop"
+            fi
+          elif [[ "${{ github.ref }}" == refs/heads/develop ]]; then
+            TAG="develop"
+            FRAPPE_VER="develop"
+            ERPNEXT_VER="develop"
+          elif [[ "${{ github.ref }}" == refs/heads/version-15* ]]; then
+            TAG="version-15"
+            FRAPPE_VER="version-15"
+            ERPNEXT_VER="version-15"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="latest"
+          fi
+
+          echo "frappe_version=$FRAPPE_VER" >> $GITHUB_OUTPUT
+          echo "erpnext_version=$ERPNEXT_VER" >> $GITHUB_OUTPUT
+          # Convert repository name to lowercase for GHCR
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          echo "image_name=ghcr.io/$REPO_LOWER" >> $GITHUB_OUTPUT
+
+      - name: Docker tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.image_name }}
+          tags: |
+            type=sha,prefix=sha-,format=short,enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=sha-${{ github.sha }},enable=${{ github.event_name != 'pull_request' }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=tag
+            type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/release' }}
+            type=ref,event=pr,prefix=pr-
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # No QEMU: we build linux/amd64 only, so there is nothing to emulate.
+      #
+      # arm64 is not built here. GitHub-hosted ARM runners (ubuntu-24.04-arm) are
+      # free for public repositories only; this repo is private on a free plan, so
+      # the runner would never be assigned and the job would queue forever.
+      # Emulating arm64 through QEMU instead cost ~14.6 min per build for an
+      # architecture nothing currently deploys on.
+      #
+      # To add arm64 later, follow a container-build workflow: a
+      # native runner per architecture pushing :tag-amd64 / :tag-arm64, then
+      # `docker buildx imagetools create` to stitch the manifest. That needs
+      # either a paid plan, a public repo, or self-hosted ARM runners.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Gate the push on the image actually working. The integration-test job
+      # runs inside the central-site bench container, which has the full unpruned
+      # Frappe install -- a broken entry in scripts/excluded_packages.txt still
+      # shows green there, because the code under test never touches this image.
+      #
+      # Cheap: the push step below builds the same single platform, so it is
+      # served almost entirely from this build's buildx cache.
+      - name: Build image for verification (amd64, not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Containerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          provenance: false
+          tags: frappe-microservice:verify
+          build-args: |
+            FRAPPE_VERSION=${{ steps.vars.outputs.frappe_version }}
+            ERPNEXT_VERSION=${{ steps.vars.outputs.erpnext_version }}
+
+      # Boots the service, then walk-imports every frappe/erpnext module. This is
+      # what catches a Frappe upgrade adding a top-level import that silently
+      # invalidates the exclusion list. See docs/dependency-slimming.md.
+      - name: Verify nothing broke outside the excluded features
+        run: |
+          docker run --rm \
+            -e DB_HOST=db -e DB_NAME=verify -e DB_PASSWORD=verify \
+            --entrypoint /opt/venv/bin/python \
+            frappe-microservice:verify /app/scripts/check_pruned_deps.py
+
+      - name: Report image size
+        run: |
+          size=$(docker image inspect frappe-microservice:verify --format '{{.Size}}')
+          awk -v s="$size" 'BEGIN { printf "service image: %.0f MB\n", s/1048576 }'
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Containerfile
+          platforms: linux/amd64
+          push: true
+          pull: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            FRAPPE_VERSION=${{ steps.vars.outputs.frappe_version }}
+            ERPNEXT_VERSION=${{ steps.vars.outputs.erpnext_version }}
+
+  # ---------------------------------------------------------------------------
+  # Runs tests/integration/ from inside the published service image, against
+  # central-site's MariaDB and Redis -- the only check that exercises the shipped
+  # image at runtime rather than at import time.
+  #
+  # Runs on pushes to main and on manual dispatch, NOT on pull requests. It pulls
+  # the central-site image (several GB), which integration-test already pulls on
+  # its own runner, so making it run per-PR would double that for little gain --
+  # the cheap import-level gate in `build` already blocks a broken image from
+  # being pushed at all.
+  #
+  # Pulls the image `build` just published instead of rebuilding it.
+  # Expected: 12 passed, 9 skipped. See docs/dependency-slimming.md.
+  # ---------------------------------------------------------------------------
+  verify-image:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release'))
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Docker Compose v2 plugin
+        run: |
+          mkdir -p ~/.docker/cli-plugins/
+          curl -SL https://github.com/docker/compose/releases/download/v2.26.0/docker-compose-linux-x86_64 -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          docker compose version
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run tests/integration/ from inside the published image
+        run: |
+          docker pull "${{ needs.build.outputs.image }}"
+          SERVICE_IMAGE="${{ needs.build.outputs.image }}" \
+            ./scripts/run_service_image_integration.sh

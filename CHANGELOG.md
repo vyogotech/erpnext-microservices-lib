@@ -1,0 +1,299 @@
+# Changelog
+
+## [Unreleased]
+
+### Added
+
+- **Single-tenant mode is now a real, supported deployment mode.** `MULTI_TENANT=0`
+  previously gated only the write-side `BaseDocument` patch, so `TenantAwareDB`
+  still injected a `tenant_id` filter on every read and raised `ValueError` when
+  no tenant was in context, and `insert_doc` still stamped and verified a
+  `tenant_id`. The flag is now threaded through `TenantAwareDB` and honoured end
+  to end: nothing resolves, filters on, writes or verifies a `tenant_id`. The
+  library therefore runs against a **stock Frappe/ERPNext site** with no Central
+  Site tenancy provider and no `tenant_id` column.
+
+  Also gated for this mode: the per-request tenant lookup in `secure_route`
+  (which otherwise ran two failing queries and logged three errors per request),
+  the startup registered-resource column diagnostic, tenant-scoped master
+  docname generation in `naming.py`, link-label presentation in
+  `presentation.py`, and — importantly — `presync._ensure_tenant_id_column`,
+  which would otherwise have silently re-created the very column this mode
+  exists to do without.
+
+  `tenant_strict` is deliberately short-circuited when the mode is off: its
+  `warn` default would otherwise log on every read, and `enforce` would make the
+  mode impossible. **Role permissions are unaffected and still enforced.**
+
+  Multi-tenant remains the default. An unset *or empty* `MULTI_TENANT` still
+  resolves to on, so a missing ConfigMap key cannot silently drop isolation —
+  disabling requires an explicit `MULTI_TENANT=0`.
+
+### Changed
+
+- **Integration tests run against the public `docker.io/vyogo/erpnext` SNE image**
+  in single-tenant mode, rather than a private central-site image carrying a
+  proprietary tenancy app. The `integration-test` CI job no longer authenticates
+  to any registry, so it runs for pull requests from forks. Override the image
+  with `CENTRAL_SITE_IMAGE`.
+
+- **Freeze pins** — Default `FRAPPE_VERSION=v16.28.0` and `ERPNEXT_VERSION=v16.29.0`
+  (immutable tags, not floating `version-16`) so microservice images stay schema-
+  aligned with central `FROM frappe/erpnext:v16.29.0`.
+
+### Fixed
+
+- **Entrypoint claimed DocType presync when it skipped** — `entrypoint.main()`
+  always set `_DOCTYPES_PRESYNCED=1` even when `presync_service_doctypes()`
+  could not connect (or otherwise skipped). Workers then never retried, so
+  custom DocTypes (signup/auth OTP sessions, etc.) were missing until a
+  container restart. Presync now returns a bool; the flag is set only on
+  success so the first request can sync via `MicroserviceApp`.
+- **Presync skipped on missing CWD-relative site logs** — When
+  `FRAPPE_STREAM_LOGGING` was not effective and CWD remained `/app`,
+  `frappe.connect()` during `presync_service_doctypes` opened
+  `/app/<site>/logs/database.log` (not under `FRAPPE_SITES_PATH`), raised
+  `FileNotFoundError`, and silently skipped fixture sync and
+  `SERVICE_POST_PRESYNC` (e.g. email templates / print formats). Presync now
+  applies `patch_logger_fallback`, `chdir`s to the sites path, and creates log
+  dirs under `/app`, `/app/sites`, and `FRAPPE_SITES_PATH` before connect.
+- **`create_site_config` default `FRAPPE_SITES_PATH`** — Changed from `/app` to
+  `/app/sites` to match entrypoint, `MicroserviceApp`, and the Containerfile.
+
+## [1.5.0] - 2026-04-08
+
+### Security & stability hardening
+
+These changes come from a full security/stability review. Every new enforcement
+ships in **warn-only** mode in 1.5.0 (log what *would* be blocked, block
+nothing) and flips to `enforce` in 2.0. Pure bug fixes ship without flags.
+
+- **Authorization (`PERMISSION_MODE`)** — `TenantAwareDB` read methods
+  (`get_all`, `get_doc`, `get_value`, `exists`, `count`) and `set_value` now
+  honor role permissions via `frappe.has_permission` / `doc.has_permission`.
+  Modes `off|warn|enforce` (default `warn`). Writes remain enforced by Frappe's
+  document model. New `frappe_microservice/policy.py::resolve_mode`.
+- **CSRF (`CSRF_MODE`)** — cookie-authenticated mutations now require an
+  `X-Requested-With: XMLHttpRequest` signal. Modes `off|warn|enforce` (default
+  `warn`). Bearer, internal-token and `X-Frappe-SID` header clients are exempt.
+  `_validate_session` now records `g.auth_method`.
+- **CORS default** — `site_config.json` honors the `ALLOW_CORS` env var; when
+  unset it keeps the historical `'*'` but logs a warning (the default changes
+  in 2.0).
+- **Internal service token hardening** — constant-time comparison
+  (`hmac.compare_digest`), configurable identity via `INTERNAL_SERVICE_USER`
+  (default `Administrator`, unchanged), and an audit log that never records the
+  token value.
+- **Tenant strictness (`TENANT_STRICT`)** — `get_doc` no longer fails open when
+  a fetched document's table lacks a `tenant_id` column (`off|warn|enforce`,
+  default `warn`). New `TenantAccessError` (subclass of `frappe.PermissionError`).
+- **Cross-tenant enumeration masking (`MASK_PERMISSION_ERRORS`)** — when enabled
+  (default **off**), cross-tenant probes are masked as `404` (identical to a
+  missing document) in resource handlers and `secure_route`; role denials still
+  return `403`. **Behavior note:** the `error` field of `500` responses is now
+  `null` outside debug mode (previously leaked `str(e)`).
+- **Log & error hygiene** — session cookies / sid are never logged in full;
+  `500` bodies gate `str(e)` behind debug; per-request `secure_route` logs
+  dropped to `debug`.
+- **Truthful health checks** — `/health` reports `database: "pending"` until the
+  DB connection is established; new `/health/ready` performs a real
+  `SELECT 1` and returns `503` on failure. Use `/health` for liveness and
+  `/health/ready` for readiness.
+- **Stability fixes** — the generic error handler now rolls back before
+  returning `500` (no more committing half-completed writes on unhandled
+  exceptions in plain routes); `RQ_DEFAULT_JOB_TIMEOUT` env for the embedded RQ
+  worker (unset = `-1`, unchanged) with a startup warning that the embedded
+  worker cannot enforce timeouts; the `get_attr` isolation patch no longer
+  swallows import errors from *allowed* apps (real bugs now surface — **behavior
+  fix**).
+- **DocType schema sync (`DOCTYPE_SYNC_MODE`)** — startup presync now supports
+  Hibernate-style `migrate` mode (default): changed DocType JSONs update both
+  `tabDocType` metadata and the SQL table schema (additive; `tenant_id` is never
+  dropped and is auto-added to new tables). `create` mode reproduces the old
+  create-only behavior byte-for-byte. Concurrent replicas are serialized with a
+  DB advisory lock. Fixes the broken `frappe-ms` console script by adding
+  `frappe_microservice/cli.py` (`frappe-ms migrate` / `frappe-ms worker`).
+- **Container-safe logging** — `FRAPPE_STREAM_LOGGING=1` is set by default (via
+  `os.environ.setdefault` on import and in both Containerfiles) so Frappe log
+  output goes to stderr and the `/logs/database.log` `FileNotFoundError` on
+  container/read-only filesystems can no longer occur. Opt out with
+  `FRAPPE_STREAM_LOGGING=""`. Entry point and app now `chdir` into the sites
+  path, and a `create_handler` fallback degrades to a `StreamHandler` on
+  `OSError`. **Behavior note:** `frappe.logger` output now streams to stderr
+  instead of files. **Behavior note:** because the entrypoint `chdir`s to the
+  sites path before exec'ing Gunicorn, worker processes now inherit
+  `CWD = <FRAPPE_SITES_PATH>` (previously the image `WORKDIR`, e.g. `/app`).
+  Service code that opens files with relative paths (e.g. `open("config.json")`
+  in `server.py`) should use absolute paths or `SERVICE_PATH`.
+
+### Packaging & docs
+- `python_requires>=3.10` (PEP 604 union syntax is used unguarded); dropped
+  3.8/3.9 classifiers.
+- New optional `[otel]` extra (the OpenTelemetry packages remain in the base
+  install for 1.5.0 and move to extra-only in 2.0).
+- `flake8` now runs in CI (`setup.cfg` config); removed a duplicate `import
+  copy`, unused imports, and over-long lines.
+- README: added a **Security configuration** table of every env var/flag with
+  1.5.0 and planned 2.0 defaults; fixed dead references and the `[otel]` install
+  instruction; documented tenant auto-resolution, health/readiness probes, and
+  container logging. Added `CONTRIBUTING.md` and a minimal
+  `examples/signup-service/`.
+
+### Deprecations / defaults changing in 2.0
+- `PERMISSION_MODE`: `warn` → `enforce`.
+- `CSRF_MODE`: `warn` → `enforce`.
+- `ALLOW_CORS`: default `'*'` → a required explicit value (no permissive default).
+- `TENANT_STRICT`: `warn` → `enforce`.
+- `MASK_PERMISSION_ERRORS`: `off` → `on`.
+- `DOCTYPE_SYNC_MODE`: default is already `migrate` in 1.5.0 (was create-only);
+  `create` remains available as an opt-out.
+- OpenTelemetry packages leave the base install and become `[otel]`-only.
+- `FRAPPE_STREAM_LOGGING` default streaming remains; file logging stays opt-in
+  via `FRAPPE_STREAM_LOGGING=""`.
+
+### Fixed
+- **update_doc child table crash**: `TenantAwareDB.update_doc()` used `setattr()` to apply incoming data, which left child-table fields (e.g. `items`, `taxes`) as plain Python dicts instead of Frappe child `Document` instances. On `doc.save()`, Frappe's `_set_defaults()` called `.is_new()` on each child row and crashed with `AttributeError: 'dict' object has no attribute 'is_new'`. Fixed by replacing the `setattr` loop with `doc.update(data)`, which delegates to Frappe's `BaseDocument.update()` → `extend()` → `_init_child()` pipeline to properly convert child rows.
+
+### Added
+- **Integration test suite** (`tests/integration/`): 10 tests that run against a live Frappe/ERPNext site inside a `vyogo/erpnext:sne-version-16` container (all-in-one MariaDB + Redis + Frappe). Tests cover:
+  - `update_doc` with scalar fields, child tables, mixed payloads, row replacement, and Desk-style rows with `name`/`doctype`
+  - `insert_doc` with single and multiple child-table rows
+  - `delete_doc` for draft invoices
+  - Full CRUD cycle (create → read → update with child table → delete)
+- **`docker-compose.integration.yml`**: Single-service compose file for the integration test container.
+- **`scripts/run_integration_tests.sh`**: End-to-end orchestration script — starts container, waits for site readiness, bootstraps ERPNext test data if needed, installs the library + pytest, runs the suite, and tears down. Supports `KEEP_RUNNING=1` for debugging.
+
+- **FakeDocument / FakeChildDocument test doubles** (`tests/conftest.py`): Lightweight stand-ins for `BaseDocument` that faithfully model the child-table conversion behaviour. `FakeDocument.update()` converts child dicts to `FakeChildDocument` instances (like `BaseDocument.update` → `_init_child`), while raw `setattr` leaves them as plain dicts. `save()` calls `_set_defaults()` → `is_new()` on every child row — crashing on dicts exactly like the real framework.
+- **Document-model unit tests** (`tests/test_tenant_aware_db.py::TestUpdateDocDocumentModel`): 6 tests that assert against the Document model instead of `MagicMock`:
+  - Child table dicts become `FakeChildDocument` instances after `update_doc`
+  - Multiple child tables (items + taxes) handled correctly
+  - Scalar-only updates work without child table fields
+  - **Regression proof**: the old `setattr` loop crashes with `AttributeError: 'dict' object has no attribute 'is_new'`
+  - `doc.update()` converts dicts so `save()` succeeds
+  - Every child row exposes a callable `is_new()`
+- **CI integration-test job** (`.github/workflows/ci.yml`): Runs integration tests with `--cov` coverage inside the ERPNext container, gating the image build (`test → integration-test → build`).
+
+### Coverage
+- Integration tests cover **45%** of `tenant.py` (the module containing the fix) with real Frappe `Document` objects against a live database — no mocks.
+- Overall library integration coverage is **16%** (these tests focus on the CRUD/tenant layer; other modules like `app.py`, `isolation.py`, `auth.py` are covered by the existing mock-based unit suite at **80%+**).
+
+## [1.4.1] - 2026-03-14
+
+### Fixed
+- **Background Tasks**: Fixed `TypeError` in `_rq_job_wrapper` by ensuring all required path arguments (`sites_path`, `doctypes_path`, `controllers_path`) are passed during task enqueuing.
+- **Controller Registry**: Refactored `ControllerRegistry` into a global singleton (`frappe._microservice_registry`) to ensure consistent discovery across processes and worker threads.
+- **Isolation**: Fixed `ImportError` (ModuleNotFoundError) in `microservice_import_controller` by adding an explicit fallback to `frappe.model.document.Document` when a service doctype controller is not found.
+- **Tests**: Resolved multiple regressions in `test_background_rq.py`, `test_controllers.py`, and `test_service_doctypes.py` related to mocking and global state.
+- **Mocks**: Added missing `__name__` attributes to mocked controller classes in tests to prevent `AttributeError`.
+- **Test Coverage**: Increased code coverage to **81.24%** by implementing targeted tests for previously uncovered branches in `site_config.py` and `isolation.py`.
+
+### Added
+- **Integrated RQ**: Standardized environment variables (`ENABLE_RQ`, `REDIS_URL`) for embedded RQ worker activation.
+- **Global Discovery**: Automated controller discovery now targets the global registry by default.
+- **Coverage Suite**: Added `tests/test_coverage_gap.py` to ensure high coverage of edge cases and exception handlers.
+
+## [1.4.0] - 2026-03-14
+
+### Added
+- **Integrated Background Task Processing (RQ)**:
+  - Added `BackgroundTaskMixin` to `MicroserviceApp`.
+  - Embedded RQ worker that auto-starts when `ENABLE_RQ=1` is set.
+  - `app.enqueue_task()` method for queuing jobs with automatic Frappe context restoration.
+  - `_rq_job_wrapper` in `background.py` handles DB connection management, session restoration, and error logging for background jobs.
+- **Globalized Controller Registry**:
+  - `ControllerRegistry` is now a singleton managed via `frappe._microservice_registry`.
+  - This ensures that controllers auto-discovered or manually registered in the main process (e.g. Gunicorn) are correctly resolved in worker processes (RQ).
+  - Added `_scanned_paths` tracking to prevent redundant directory scans.
+- **Enhanced Isolation Logging**: Added detailed discovery logs in `app.py` and `isolation.py` to trace controller resolution in containerized environments.
+
+### Changed
+- **`setup.py`**: Added `rq>=1.16.0` to `install_requires`.
+- **`IsolationMixin`**: Now explicitly triggers controller discovery during initialization if `controllers_path` is provided.
+
+### Fixed
+- **Serialization Issues**: Resolved `Document` object pickling errors in background tasks by enforcing reference-based task arguments in services.
+- **Controller Resolution**: Fixed `AttributeError: 'Document' object has no attribute...` by ensuring the patched `import_controller` has access to the global registry across all forked processes.
+
+## [1.3.1] - 2026-03-13
+
+### Fixed
+- **DocType sync no longer destabilises the central site** (`isolation.py`).
+  Two-part fix for the `AttributeError: module 'frappe.integrations.oauth2' has no attribute 'set_cors_for_privileged_requests'` (and similar) errors on the central site after a service restart:
+  - **`_import_doc_without_cache_flush`**: Temporarily replaces `frappe.cache_manager.reset_metadata_version` with a no-op during `import_doc`. DocType save previously called `frappe.clear_cache(doctype=…)` → `reset_metadata_version()`, which bumped a hash in **shared Redis**. The central site detected the version change on its next request and reloaded all hooks — tripping over any hook pointing to a removed/renamed function in the installed Frappe version.
+  - **`_ensure_module_def`**: Inserts a `Module Def` record (if absent) for the service module before DocType import, attributing the DocType to the service app instead of defaulting to `"frappe"`. This prevents the central site from trying to load controller classes that only exist inside the service container.
+
+## [1.3.0] - 2026-03-13
+
+### Changed
+- **Gunicorn entrypoint**: `frappe_microservice.entrypoint.main()` now execs Gunicorn directly (Frappe-style `os.execvpe`) with `--worker-class=sync --worker-tmp-dir=/dev/shm`. No more Flask dev server in production containers. Configurable via `PORT` (default `8000`), `GUNICORN_WORKERS` (default `4`), `GUNICORN_TIMEOUT` (default `120`).
+- **`MicroserviceApp` is WSGI-callable**: Added `__call__(environ, start_response)` so Gunicorn can use `SERVICE_APP` (e.g. `server:app`) pointing at the `MicroserviceApp` instance directly.
+- **`gunicorn>=22.0` added** to `setup.py` install_requires and `Containerfile` pip step.
+
+### Fixed
+- **DB connection leak eliminated**: Frappe context and DB connection are now managed per-worker, not per-request.
+  - `_initialize_frappe()` (called once at `__init__` time) runs `frappe.init()` and all patches; captures `frappe.local` dict into `self._frappe_local_base` without opening a DB connection.
+  - `_restore_frappe_local()` (called in `before_request`) restores the ContextVar dict and lazily opens the DB on the first request per worker (`frappe.local.db` stored in `self._db_obj`). Subsequent requests inject `frappe.local.db = self._db_obj` without reconnecting.
+  - `self._db_obj = frappe.local.db` (the real DB instance) instead of `frappe.db` (a `LocalProxy`) prevents `RecursionError` on ping.
+  - `ping()` called without keyword args to avoid `TypeError: ping() takes no keyword arguments`.
+- **`/health` and `/socket.io/` skip DB entirely**: Both `before_request` and `after_request` return early for these paths — no Frappe context, no DB, no reconnects.
+- **`after_request` rollback on commit failure**: `frappe.db.commit()` wrapped in `try/except`; calls `frappe.db.rollback()` on failure so the connection is left clean for the next request.
+- **`/app/logs` directory created in Containerfile**: Prevents `FileNotFoundError` for `database.log` when Gunicorn workers start under a non-root user.
+
+### Added
+- **Unit tests** (`tests/test_db_connection_reuse.py`): 12 tests covering skip-paths, connect-once, DB object identity, reconnect-on-ping-failure, WSGI callable, Gunicorn entrypoint flags, and after_request rollback.
+- **`conftest.py`**: Extended to stub `frappe.utils.local._contextvar` (new import) so the full test suite runs on hosts without real Frappe installed.
+
+## [1.2.0] - 2026-03-10
+
+### Fixed
+- **Microservice Initialization Order**: Swapped initialization steps in `app.py` to call `_patch_hooks_resolution()` before `_sync_service_doctypes()`. This prevents `ModuleNotFoundError` for apps that don't have a `hooks.py` file.
+- **Module Resolution (In-Memory)**: Updated `isolation.py` to register module-to-app mappings in-memory BEFORE DocType syncing, avoiding the need for `Module Def` records in the database for microservices.
+- **Transaction Safety**: Added explicit `frappe.db.rollback()` on DocType sync failure to prevent transaction leakage (`ImplicitCommitError`) in subsequent requests on the same thread.
+- **Thread Safety**: Verified `threading.Lock` usage in `setup_frappe_context` for safe concurrent cold starts.
+
+## [1.1.0] - 2026-03-09
+
+### Added
+- **Central Site client**: `CentralSiteClient` in `frappe_microservice.central` for calling the central site API (FrappeClient-style). Configured via `CENTRAL_SITE_URL`, `CENTRAL_SITE_API_KEY`, `CENTRAL_SITE_API_SECRET`, or `CENTRAL_SITE_USER`/`CENTRAL_SITE_PASSWORD`. Access via `app.central` on `MicroserviceApp`.
+- **Service DocTypes sync**: Support for syncing DocType definitions into the microservice DB (see `tenant.py` and `isolation.py`). Tests in `test_service_doctypes.py`.
+- Tests for central client (`test_central.py`).
+
+### Changed
+- `app.py`: Refinements to app setup and exposure of `app.central` when central client is configured.
+- `isolation.py`: Extended for service DocType handling and tenant isolation behavior.
+- `tenant.py`: Updates for tenant-aware DB and service DocType flows.
+- `conftest.py`: Mock setup adjustments for new modules.
+- Swagger real-integration test now skips when `flasgger` is not installed (`pytest.importorskip`), so the test suite passes in environments without optional deps.
+
+### Fixed
+- Test suite: unit tests (excluding `integration` marker) pass consistently; integration tests remain opt-in when services are running.
+
+---
+
+## [0.2.0] - 2026-03-08
+
+### Added
+- New modular components extracted from core.py:
+  - app.py: MicroserviceApp class
+  - auth.py: authentication and JWT handling
+  - hooks.py: Frappe hook integration
+  - isolation.py: tenant isolation logic
+  - resources.py: REST resource handlers
+  - tenant.py: tenant-aware database operations
+- End-to-end simulation tests (test_e2e_simulation.py)
+- Patch target guard tests (test_patch_target_guard.py)
+- Expanded documentation (architecture.md, development.md, getting-started.md)
+
+### Changed
+- core.py: refactored from monolith to thin re-export module
+- entrypoint.py: updated imports for new modular structure
+- Containerfile: streamlined build steps
+- Containerfile.postgres: updated base image and build steps
+- README.md: expanded with architecture overview and module descriptions
+- All test files updated to work with new module structure
+
+### Fixed
+- **Module loading / RecursionError**: Guard monkey-patching of `frappe.get_installed_apps` and `frappe.get_all_apps` with an idempotency flag (`_microservice_isolation_applied`) so that repeated calls to `_patch_app_resolution()` do not double-wrap and cause RecursionError. Ensures each microservice only loads apps from its bounded context (apps.txt + load_framework_hooks) and does not see central-site-only apps from the shared DB.
+
+### Improved
+- Test coverage increased to meet 80% CI threshold

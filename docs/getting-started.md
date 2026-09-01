@@ -1,0 +1,102 @@
+# Getting Started
+
+## Prerequisites
+
+- **Central Site**: A running Frappe site that acts as the authentication provider.
+- **A tenancy provider app** — only for multi-tenant deployments. See below.
+
+### Choosing a tenancy mode
+
+| | `MULTI_TENANT=1` (default) | `MULTI_TENANT=0` |
+|---|---|---|
+| Site | Needs a Central Site tenancy provider | Stock Frappe/ERPNext |
+| Reads | Scoped by `tenant_id` | Unscoped |
+| Writes | Stamped with `tenant_id` | Not stamped |
+| Role permissions | Enforced | Enforced (unchanged) |
+
+Multi-tenant mode expects a Central Site app that adds a `tenant_id` column to
+the tables and returns `tenant_id` in the session-validation response. That is
+the whole contract — any app meeting it will do.
+
+Single-tenant mode (`MULTI_TENANT=0`) drops the requirement and runs against a
+stock site. Note an *empty* `MULTI_TENANT` value is not "off": it falls back to
+the default, so a missing ConfigMap key cannot silently drop tenant isolation.
+Set it to `0` explicitly.
+
+## Installation
+
+### From Source
+```bash
+git clone https://github.com/vyogotech/erpnext-microservices-lib.git
+cd frappe-microservice-lib
+pip install -e .
+```
+
+### Production Deployment (Docker)
+The framework is designed to be built into a Docker image using the provided `Containerfile`. See [CI/CD & Release Strategy](ci-cd.md) for automated tagging details.
+
+**Library entrypoint (no per-service entrypoint.py)**  
+The base image runs `python -m frappe_microservice.entrypoint`. The framework discovers your app via env:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVICE_PATH` | Directory containing your service code | `/app/service` |
+| `SERVICE_APP` | Module and app attribute (`module:attr`) | `server:app` |
+
+Your service only needs e.g. `server.py` with `app = create_microservice("my-service", ...)`. Set `SERVICE_PATH` and optionally `SERVICE_APP` in your service image; no custom entrypoint script is required.
+
+## Quick Start
+
+### Basic Microservice
+```python
+from frappe_microservice import create_microservice
+
+# Initialize microservice
+app = create_microservice("my-service")
+
+# Create a secure endpoint (authentication required via Central Site)
+@app.secure_route('/hello', methods=['GET'])
+def hello(user):
+    """User is automatically injected after authentication"""
+    return {"message": f"Hello {user}!"}
+
+# Start the service
+if __name__ == '__main__':
+    app.run()
+```
+
+### Automatic CRUD with Resource API
+The most powerful feature is the ability to expose any Frappe DocType as a REST resource with a single line:
+
+```python
+from frappe_microservice import create_microservice
+
+app = create_microservice("orders-service")
+
+# Register a DocType for automatic CRUD
+app.register_resource("Sales Order")
+
+# This automatically creates secure, tenant-isolated endpoints:
+# GET    /api/resource/sales-order        - List
+# POST   /api/resource/sales-order        - Create
+# GET    /api/resource/sales-order/{name} - Get
+# PUT    /api/resource/sales-order/{name} - Update
+# DELETE /api/resource/sales-order/{name} - Delete
+
+app.run()
+```
+
+## Configuration
+
+The framework uses environment variables for easy containerization:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FRAPPE_SITE` | The Frappe site name | |
+| `FRAPPE_SITES_PATH` | Path to the bench sites directory | |
+| `CENTRAL_SITE_URL` | URL of the Central Site for Auth | |
+| `DB_HOST` | Database host for the service | |
+| `SERVICE_PATH` | Directory containing service code (container entrypoint) | `/app/service` |
+| `SERVICE_APP` | App to run as `module:attr` (container entrypoint) | `server:app` |
+| `LOG_LEVEL` | Logging level (DEBUG, INFO, etc.) | `INFO` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP Exporter URL | |

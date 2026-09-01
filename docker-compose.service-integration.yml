@@ -1,0 +1,45 @@
+# Run tests/integration/ from INSIDE the built service image.
+#
+# tests/integration/ normally runs in the central-site bench container, which has
+# the full unpruned Frappe install -- so it exercises the library but proves
+# nothing about the shipped service image. This compose pairs the two:
+#
+#   central-site  provides MariaDB + Redis + a provisioned dev.localhost schema,
+#                 exactly as it does in production
+#   service       the image under test, connecting over the network as a real
+#                 microservice does
+#
+# Driven by scripts/run_service_image_integration.sh (it discovers the DB
+# credentials from central-site and writes the service's site_config.json).
+#
+# Override the image under test with SERVICE_IMAGE, e.g.
+#   SERVICE_IMAGE=localhost/frappe-microservice-lib:latest ./scripts/run_service_image_integration.sh
+services:
+  central-site:
+    # Public SNE image; override with CENTRAL_SITE_IMAGE to test another line.
+    image: ${CENTRAL_SITE_IMAGE:-docker.io/vyogo/erpnext:sne-version-16}
+    environment:
+      FRAPPE_STREAM_LOGGING: "1"
+      MULTI_TENANT: "0"
+    command: ["/usr/libexec/s2i/run"]
+    volumes:
+      - .:/mnt/lib
+
+  service:
+    image: ${SERVICE_IMAGE:-localhost/frappe-microservice-lib:latest}
+    depends_on: [central-site]
+    # the real entrypoint starts gunicorn; keep the container alive so the
+    # suite can be exec'd into it
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      FRAPPE_STREAM_LOGGING: "1"
+      FRAPPE_SITE: dev.localhost
+      FRAPPE_SITES_PATH: /app/sites
+      ALLOW_CORS: "https://example.test"
+      DB_HOST: central-site
+      REDIS_HOST: central-site
+      REDIS_PORT: "6379"
+      # Stock ERPNext has no tenant_id column; see docker-compose.integration.yml
+      MULTI_TENANT: "0"
+    volumes:
+      - .:/mnt/lib

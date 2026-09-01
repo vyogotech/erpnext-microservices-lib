@@ -1,0 +1,16 @@
+# Packages Frappe/ERPNext import but do NOT declare as dependencies.
+#
+# With the old "install everything, then uninstall" approach these arrived by
+# accident, as transitive dependencies of something else. Installing with
+# --no-deps makes the gap visible: if nothing declares them, nothing installs
+# them, and the module that imports them breaks.
+#
+# Each entry needs a comment naming the importer, so the next person can check
+# whether it is still needed after a version bump.
+# Found by scripts/check_pruned_deps.py -- add here, never by widening the
+# exclusion list.
+
+# erpnext.edi.doctype.code_list.code_list_import and
+# erpnext.edi.doctype.common_code.common_code import lxml directly. It used to
+# arrive only as a transitive dependency of premailer, so declare it explicitly.
+lxml

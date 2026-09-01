@@ -1,0 +1,16 @@
+# Minimal example service image built on the frappe-microservice base image.
+# The base image ENTRYPOINT is `python -m frappe_microservice.entrypoint`,
+# which discovers this app via SERVICE_PATH / SERVICE_APP and starts Gunicorn.
+FROM ghcr.io/your-org/frappe-microservice-lib:latest
+
+WORKDIR /app
+COPY . /app/service/
+RUN touch /app/service/__init__.py
+
+# Expose the service as a Frappe app so the framework can load it
+# (name "signup-service" -> signup_service).
+RUN ln -sf /app/service /app/sites/apps/signup_service
+
+ENV SERVICE_PATH=/app/service
+ENV SERVICE_APP=server:app
+EXPOSE 8000
