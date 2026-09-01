@@ -14,8 +14,11 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
+  - Configuration: configuration.md
+  - Tenancy: tenancy.md
+  - Core Features: features.md
+  - Security: security.md
   - Architecture: architecture.md
-  - Features: features.md
   - Observability: observability.md
   - CI/CD & Release: ci-cd.md
   - Developer Guide: development.md

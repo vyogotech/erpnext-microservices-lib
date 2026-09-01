@@ -1,8 +1,43 @@
 # Core Features
 
-## Document Controllers
+## Auto-CRUD resources
 
-Document Controllers allow you to organize your business logic into Frappe-style classes.
+`register_resource()` exposes a DocType as a REST resource — authenticated,
+tenant-scoped and documented in Swagger, with no handler code:
+
+```python
+app = create_microservice("orders-service")
+app.register_resource("Sales Order")
+```
+
+```
+GET    /api/resource/sales-order         list
+POST   /api/resource/sales-order         create
+GET    /api/resource/sales-order/{name}  read
+PUT    /api/resource/sales-order/{name}  update
+DELETE /api/resource/sales-order/{name}  delete
+```
+
+List routes accept the usual Frappe query parameters (`filters`, `fields`,
+`limit`, `order_by`).
+
+## Secure endpoints
+
+`secure_route` authenticates the caller against the Central Site and injects the
+resolved user:
+
+```python
+@app.secure_route("/orders/summary", methods=["GET"])
+def order_summary(user):
+    orders = app.tenant_db.get_all("Sales Order", filters={"status": "Draft"})
+    return {"user": user, "count": len(orders)}
+```
+
+Use `app.route(...)` for a deliberately public endpoint — it takes no `user`.
+
+## Document controllers
+
+Organise business logic in Frappe-style classes:
 
 ```python
 # controllers/sales_order.py
@@ -12,66 +47,138 @@ class SalesOrder(DocumentController):
     def validate(self):
         if not self.customer:
             self.throw("Customer is required")
+
+    def before_insert(self):
+        self.status = self.status or "Draft"
 ```
 
-Register them in your `server.py`:
+Register them once:
+
 ```python
 from frappe_microservice import setup_controllers
 setup_controllers(app, controllers_directory="./controllers")
 ```
 
-## Document Hooks
+Controllers are auto-discovered from `$SERVICE_PATH/controllers/` when that
+directory exists, and run during insert and update — including from background
+jobs.
 
-Add custom logic to lifecycle events without modifying core frameworks.
+## Document hooks
+
+For logic that does not warrant a class, or that spans DocTypes:
 
 ```python
-@app.tenant_db.on('Sales Order', 'before_insert')
-def set_order_defaults(doc):
-    if not doc.status:
-        doc.status = 'Draft'
+@app.tenant_db.on("Sales Order", "before_insert")
+def set_defaults(doc):
+    doc.status = doc.status or "Draft"
+
+@app.tenant_db.on("*", "after_insert")     # every DocType
+def audit(doc):
+    app.logger.info("created %s %s", doc.doctype, doc.name)
 ```
 
-Supported events include `before_validate`, `validate`, `before_insert`, `after_insert`, `before_update`, `after_update`, `before_delete`, and `after_delete`.
+Events: `before_validate`, `validate`, `before_insert`, `after_insert`,
+`before_update`, `after_update`, `before_delete`, `after_delete`.
 
-## Standardized Error Handling
+## Background tasks
 
-All framework responses follow a consistent JSON format:
+An embedded RQ worker runs as a daemon thread inside the service container — no
+separate worker deployment. It is **off by default**; enable with `ENABLE_RQ=1`.
 
-```json
-{
-  "status": "error",
-  "message": "Human readable message",
-  "type": "ExceptionClass",
-  "code": 4xx
-}
+```python
+@app.secure_route("/reports", methods=["POST"])
+def trigger_report(user):
+    app.enqueue_task(build_report, user, period="monthly")
+    return {"status": "enqueued"}
+
+def build_report(user, period=None):
+    import frappe
+    # full Frappe API available — context is restored for you
+    frappe.get_doc({...}).insert()
+    frappe.db.commit()
 ```
 
-The framework automatically maps Frappe exceptions to appropriate HTTP status codes:
-- `PermissionError` -> 403
-- `DoesNotExistError` -> 404
-- `ValidationError` -> 400
-- Authentication failures -> 401
+The worker restores `frappe.local` and the database connection, so jobs behave
+like request handlers. Controller discovery works there too.
 
-Exception strings and tracebacks are only included in `500` bodies when
-`DEBUG=1` (or Flask debug is on); otherwise `error`/`details` are `null`.
+Calling `enqueue_task()` with `ENABLE_RQ` unset raises `RuntimeError` rather than
+silently dropping the job.
 
-## Automatic tenant resolution
+!!! note "Job timeouts need a forking worker"
+    `RQ_DEFAULT_JOB_TIMEOUT` sets a default, but the **embedded** worker is a
+    `SimpleWorker` and cannot enforce it. For hard timeouts, set `WORKER_MODE=1`
+    (which starts the queue without the thread) and run `frappe-ms worker` as a
+    separate forking process.
 
-`secure_route` authenticates the caller and resolves their tenant via
-`get_user_tenant_id(user)` into `g.tenant_id`. Every `app.tenant_db` query is
-then automatically scoped to that tenant — you rarely need
-`app.set_tenant_id(...)` (only for custom resolution).
+RQ connects via `REDIS_URL`, which is **separate** from the `REDIS_HOST` /
+`REDIS_PORT` pair that feeds `site_config.json`. Setting one does not configure
+the other.
 
-## Health & readiness
+Background jobs run outside a request, so there is no session and no tenant
+context. In multi-tenant mode, pass the tenant explicitly to anything a job writes.
 
-- `GET /health` — liveness; reports the real DB connection state
-  (`connected`/`pending`) without querying.
-- `GET /health/ready` — readiness; runs `SELECT 1` and returns `503` if the DB
-  is unreachable.
+## Central Site client
 
-## Security modes
+`app.central` calls back to the Central Site with a Frappe-like API. It is
+**lazily initialised** — no connection is attempted until first use.
 
-Read/write authorization (`PERMISSION_MODE`), CSRF (`CSRF_MODE`), tenant
-strictness (`TENANT_STRICT`), and cross-tenant masking
-(`MASK_PERMISSION_ERRORS`) are configurable; see the README "Security
-configuration" table for defaults and the 2.0 roadmap.
+```python
+@app.secure_route("/sync", methods=["POST"])
+def sync(user):
+    tenant = app.central.get_doc("Tenant", "tenant-123")
+    app.central.update("Tenant", "tenant-123", {"status": "Active"})
+    result = app.central.call("some_whitelisted_method", {"param": "value"})
+    return {"status": "synced"}
+```
+
+Authenticate with either an API key/secret pair or a username/password — see
+[Configuration](configuration.md#central-site).
+
+## Swagger / OpenAPI
+
+Every service exposes interactive docs at `/apidocs`, and the raw spec at
+`/apispec_1.json`. Registered resources are documented automatically.
+
+Document custom endpoints with YAML in the docstring:
+
+```python
+@app.secure_route("/orders/summary", methods=["GET"])
+def order_summary(user):
+    """
+    Get an order summary for the current tenant
+    ---
+    tags: [Orders]
+    parameters:
+      - name: days
+        in: query
+        type: integer
+        default: 7
+    responses:
+      200:
+        description: Summary retrieved
+    """
+    return {"total_orders": 100}
+```
+
+## Health & readiness probes
+
+Two endpoints, because liveness and readiness answer different questions:
+
+- **`GET /health`** — liveness. Never queries the database; reports the
+  connection state as `connected` or `pending`. Restarting a container because
+  the database is briefly unreachable makes an outage worse, so this stays cheap.
+- **`GET /health/ready`** — readiness. Runs `SELECT 1`; returns `200`, or `503`
+  with `{"status": "not_ready"}` when the database is unreachable. Point your
+  orchestrator's readiness probe here so traffic stops without a restart loop.
+
+## Error handling
+
+All framework errors share one JSON shape, and Frappe exceptions map to sensible
+HTTP status codes. Tracebacks appear only under `DEBUG=1` — see
+[Security](security.md#error-responses).
+
+## Tenant-aware database
+
+`app.tenant_db` wraps the Frappe ORM with tenant scoping, permission checks and
+lifecycle hooks. Its behaviour depends on the tenancy mode — see
+[Tenancy](tenancy.md).

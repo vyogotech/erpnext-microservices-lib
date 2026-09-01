@@ -1,32 +1,33 @@
 # Frappe Microservice Framework
 
-Build secure, independently deployable microservices on top of Frappe and ERPNext —
-without changing how you write Frappe code.
+Build secure, independently deployable microservices on top of Frappe and
+ERPNext — without changing how you write Frappe code.
 
-Each service owns its own database (bounded context) while a **Central Site** stays
-the single source of truth for authentication. Your DocTypes, controllers and hooks
-work as they always have; the framework handles isolation, auth, tenancy and
-container startup.
+Each service owns its own database (bounded context) while a **Central Site**
+stays the single source of truth for authentication. Your DocTypes, controllers
+and hooks work as they always have; the framework handles isolation, auth,
+tenancy and container startup.
 
 The goal is gradual decomposition: peel Sales, HR or Inventory out of an ERPNext
 monolith one module at a time, rather than attempting a big-bang rewrite.
 
-📖 **[Full documentation](https://vyogotech.github.io/erpnext-microservices-lib/)**
+📖 **[Documentation](https://vyogotech.github.io/erpnext-microservices-lib/)**
 
 ---
 
 ## Why
 
-- **Secure by default** — every endpoint authenticates against the Central Site;
-  the authenticated user is injected into your handler.
-- **Zero-boilerplate CRUD** — one line exposes a DocType as a documented REST resource.
+- **Auto-CRUD** — one line exposes a DocType as a documented REST resource.
+- **Secure by default** — every endpoint authenticates against the Central Site
+  and receives the resolved user.
 - **Bounded context** — a service owns its schema and database.
-- **Optional multi-tenancy** — automatic `tenant_id` scoping on every read and write,
-  or turn it off entirely and run against a stock site.
-- **Frappe-native** — DocTypes, document lifecycle hooks and controllers, with no
-  modifications to Frappe core.
-- **Container-first** — the base image ships the entrypoint; a service needs only a
-  `server.py`.
+- **Optional multi-tenancy** — automatic `tenant_id` scoping, or turn it off and
+  run against a stock site.
+- **Frappe-native** — controllers and lifecycle hooks, no changes to Frappe core.
+- **Container-first** — the base image ships the entrypoint; a service needs only
+  a `server.py`.
+
+Requires **Frappe v16** and **Python 3.10+**.
 
 ## Installation
 
@@ -54,14 +55,12 @@ app.run()
 Automatic CRUD for a DocType — no handler code at all:
 
 ```python
-from frappe_microservice import create_microservice
-
 app = create_microservice("orders-service")
 app.register_resource("Sales Order")
 app.run()
 ```
 
-That registers, fully documented in Swagger at `/apidocs`:
+That registers, documented in Swagger at `/apidocs`:
 
 ```
 GET    /api/resource/sales-order         list
@@ -72,11 +71,12 @@ DELETE /api/resource/sales-order/{name}  delete
 ```
 
 → [Getting started](https://vyogotech.github.io/erpnext-microservices-lib/getting-started/)
+· [Core features](https://vyogotech.github.io/erpnext-microservices-lib/features/)
 for controllers, document hooks, background jobs and the Central Site client.
 
 ## Tenancy
 
-The framework runs in one of two modes, selected by `MULTI_TENANT`:
+Two modes, selected by `MULTI_TENANT`:
 
 | | `MULTI_TENANT=1` (default) | `MULTI_TENANT=0` |
 |---|---|---|
@@ -85,30 +85,46 @@ The framework runs in one of two modes, selected by `MULTI_TENANT`:
 | Writes | Stamped with `tenant_id` | Not stamped |
 | Role permissions | Enforced | Enforced |
 
-Multi-tenant mode expects a Central Site app that adds a `tenant_id` column to the
-tables and returns `tenant_id` in the session-validation response. That is the whole
-contract — any app meeting it works.
+Multi-tenant mode expects a Central Site app that adds a `tenant_id` column to
+the tables and returns `tenant_id` in the session-validation response. That is
+the whole contract — any app meeting it works.
 
-Single-tenant mode drops the requirement and runs against a stock site. Note that an
-*empty* `MULTI_TENANT` value is not "off": it falls back to the default, so a missing
-ConfigMap key cannot silently drop tenant isolation. Set it to `0` explicitly.
+Single-tenant mode drops the requirement and runs against a stock site. Note an
+*empty* `MULTI_TENANT` is **not** "off": it falls back to the default, so a
+missing ConfigMap key cannot silently drop tenant isolation. Set it to `0`
+explicitly.
 
-→ [Architecture & isolation](https://vyogotech.github.io/erpnext-microservices-lib/architecture/)
+→ [Tenancy](https://vyogotech.github.io/erpnext-microservices-lib/tenancy/)
+
+## Security posture
+
+Enforcement features ship in **warn-only** mode — they log what *would* be
+blocked but block nothing — and flip to `enforce` in 2.0. Deploy, grep the logs
+for `[would-deny]`, fix what surfaces, then enforce.
+
+| Variable | Values | Default | 2.0 |
+|---|---|---|---|
+| `PERMISSION_MODE` | `off\|warn\|enforce` | `warn` | `enforce` |
+| `CSRF_MODE` | `off\|warn\|enforce` | `warn` | `enforce` |
+| `TENANT_STRICT` | `off\|warn\|enforce` | `warn` | `enforce` |
+| `MASK_PERMISSION_ERRORS` | `1/true/yes/on` | off | on |
+
+**Set these explicitly in production** rather than relying on either default.
+
+→ [Security](https://vyogotech.github.io/erpnext-microservices-lib/security/)
 
 ## Configuration
 
-Configure by environment variable or keyword argument to `create_microservice()`.
-See [`.env.example`](.env.example) for the full annotated set, and the
-[configuration reference](https://vyogotech.github.io/erpnext-microservices-lib/getting-started/)
-for details.
-
-The security policy flags (`PERMISSION_MODE`, `CSRF_MODE`, `TENANT_STRICT`) ship as
-`warn` — log-only, no behaviour change — and become `enforce` by default in 2.0.
-Turn them on early to see what would break.
+Every option is an environment variable; most also have a
+`create_microservice(...)` keyword argument, which takes precedence. See
+[`.env.example`](.env.example) for an annotated starting point and the
+[configuration reference](https://vyogotech.github.io/erpnext-microservices-lib/configuration/)
+for the complete set.
 
 ## Container deployment
 
-The base image runs the library entrypoint, so a service needs no `entrypoint.py`:
+The base image runs the library entrypoint, so a service needs no
+`entrypoint.py`:
 
 ```dockerfile
 FROM ghcr.io/vyogotech/erpnext-microservices-lib:latest
@@ -122,29 +138,38 @@ ENV SERVICE_APP=server:app
 EXPOSE 8000
 ```
 
+The entrypoint writes `site_config.json` from the environment, runs the DocType
+schema sync once before Gunicorn forks, and execs Gunicorn. Liveness (`/health`)
+and readiness (`/health/ready`) probes are built in.
+
+Every build publishes immutable `sha-<full>` tags — prefer those in production.
+`latest` only ever tracks `main`.
+
 ## Development
 
 ```bash
 pip install -e ".[dev]"
 
-pytest -m "not integration" tests/   # unit tests
+pytest -m "not integration" tests/   # unit tests (80% coverage gate)
 behave features/                     # BDD suite
+flake8 frappe_microservice/          # what CI lints with
 ./scripts/run_integration_tests.sh   # integration (starts a container)
 ```
 
-Integration tests run against the public `docker.io/vyogo/erpnext` SNE image in
-single-tenant mode, so they need no registry credentials. Override the image with
+Integration tests run against the public `docker.io/vyogo/erpnext:sne-version-16`
+image in single-tenant mode, so they need no registry credentials. Override with
 `CENTRAL_SITE_IMAGE`.
 
 → [Developer guide](https://vyogotech.github.io/erpnext-microservices-lib/development/)
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and our [Code of Conduct](CODE_OF_CONDUCT.md).
-Install the pre-commit hooks before your first commit:
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md). Install the hooks before your first
+commit:
 
 ```bash
-pip install pre-commit && pre-commit install
+make setup
 ```
 
 ## License

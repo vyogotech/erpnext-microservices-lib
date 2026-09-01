@@ -2,101 +2,123 @@
 
 ## Prerequisites
 
-- **Central Site**: A running Frappe site that acts as the authentication provider.
-- **A tenancy provider app** — only for multi-tenant deployments. See below.
+- **A Central Site** — a running Frappe site acting as the authentication
+  provider. Services validate every request against it.
+- **A tenancy provider app** — only for multi-tenant deployments. Single-tenant
+  mode runs against a stock site; see [Tenancy](tenancy.md).
 
-### Choosing a tenancy mode
+The library requires **Frappe v16**. It imports `frappe.utils.local`, which does
+not exist in v15.
+
+## Installation
+
+```bash
+pip install frappe-microservice
+```
+
+From source:
+
+```bash
+git clone https://github.com/vyogotech/erpnext-microservices-lib.git
+cd erpnext-microservices-lib
+pip install -e .
+```
+
+## Your first service
+
+A `server.py` with one authenticated endpoint:
+
+```python
+from frappe_microservice import create_microservice
+
+app = create_microservice("my-service")
+
+@app.secure_route("/hello", methods=["GET"])
+def hello(user):
+    # `user` is injected once the session is validated against the Central Site
+    return {"message": f"Hello {user}!"}
+
+if __name__ == "__main__":
+    app.run()
+```
+
+Point it at a Central Site and a database, then run it:
+
+```bash
+export CENTRAL_SITE_URL=http://central-site:8000
+export FRAPPE_SITE=dev.localhost
+export DB_HOST=localhost
+export MULTI_TENANT=0        # stock site, no tenancy provider
+
+python server.py
+```
+
+Interactive API docs are at `http://localhost:8000/apidocs`.
+
+## Exposing a DocType
+
+The shortest path from a DocType to a REST API:
+
+```python
+app = create_microservice("orders-service")
+app.register_resource("Sales Order")
+app.run()
+```
+
+That registers list, create, read, update and delete routes under
+`/api/resource/sales-order`, all authenticated, tenant-scoped and documented in
+Swagger. See [Core Features](features.md).
+
+## Choosing a tenancy mode
 
 | | `MULTI_TENANT=1` (default) | `MULTI_TENANT=0` |
 |---|---|---|
 | Site | Needs a Central Site tenancy provider | Stock Frappe/ERPNext |
 | Reads | Scoped by `tenant_id` | Unscoped |
 | Writes | Stamped with `tenant_id` | Not stamped |
-| Role permissions | Enforced | Enforced (unchanged) |
+| Role permissions | Enforced | Enforced |
 
-Multi-tenant mode expects a Central Site app that adds a `tenant_id` column to
-the tables and returns `tenant_id` in the session-validation response. That is
-the whole contract — any app meeting it will do.
+Start with `MULTI_TENANT=0` if you are evaluating the library or serving a single
+organisation — it needs nothing beyond a stock site. [Tenancy](tenancy.md)
+covers the Central Site contract multi-tenant mode expects.
 
-Single-tenant mode (`MULTI_TENANT=0`) drops the requirement and runs against a
-stock site. Note an *empty* `MULTI_TENANT` value is not "off": it falls back to
-the default, so a missing ConfigMap key cannot silently drop tenant isolation.
-Set it to `0` explicitly.
+!!! warning "An empty value is not off"
+    `MULTI_TENANT=""` resolves to the **default (on)**, so a missing ConfigMap
+    key cannot silently drop tenant isolation. Disabling requires `MULTI_TENANT=0`.
 
-## Installation
+## Running in a container
 
-### From Source
-```bash
-git clone https://github.com/vyogotech/erpnext-microservices-lib.git
-cd frappe-microservice-lib
-pip install -e .
+The base image ships the entrypoint, so a service needs no `entrypoint.py` — only
+a `server.py` that creates the app:
+
+```dockerfile
+FROM ghcr.io/vyogotech/erpnext-microservices-lib:latest
+WORKDIR /app
+COPY . /app/service/
+RUN touch /app/service/__init__.py
+# expose as a Frappe app so the framework can load it ("my-service" -> my_service)
+RUN ln -sf /app/service /app/sites/apps/my_service
+ENV SERVICE_PATH=/app/service
+ENV SERVICE_APP=server:app
+EXPOSE 8000
 ```
 
-### Production Deployment (Docker)
-The framework is designed to be built into a Docker image using the provided `Containerfile`. See [CI/CD & Release Strategy](ci-cd.md) for automated tagging details.
+| Variable | Purpose | Default |
+|---|---|---|
+| `SERVICE_PATH` | Directory holding your service code | `/app/service` |
+| `SERVICE_APP` | WSGI target as `module:attr` | `server:app` |
 
-**Library entrypoint (no per-service entrypoint.py)**  
-The base image runs `python -m frappe_microservice.entrypoint`. The framework discovers your app via env:
+The entrypoint (`python -m frappe_microservice.entrypoint`) writes
+`site_config.json` from the environment, runs the DocType sync once, and then
+execs Gunicorn. Use `SERVICE_APP=main:app` for a different module or attribute.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SERVICE_PATH` | Directory containing your service code | `/app/service` |
-| `SERVICE_APP` | Module and app attribute (`module:attr`) | `server:app` |
+Use immutable image tags in production — every build publishes `sha-<full>`.
+`latest` only ever tracks `main`. See [CI/CD](ci-cd.md#image-tags).
 
-Your service only needs e.g. `server.py` with `app = create_microservice("my-service", ...)`. Set `SERVICE_PATH` and optionally `SERVICE_APP` in your service image; no custom entrypoint script is required.
+## Next steps
 
-## Quick Start
-
-### Basic Microservice
-```python
-from frappe_microservice import create_microservice
-
-# Initialize microservice
-app = create_microservice("my-service")
-
-# Create a secure endpoint (authentication required via Central Site)
-@app.secure_route('/hello', methods=['GET'])
-def hello(user):
-    """User is automatically injected after authentication"""
-    return {"message": f"Hello {user}!"}
-
-# Start the service
-if __name__ == '__main__':
-    app.run()
-```
-
-### Automatic CRUD with Resource API
-The most powerful feature is the ability to expose any Frappe DocType as a REST resource with a single line:
-
-```python
-from frappe_microservice import create_microservice
-
-app = create_microservice("orders-service")
-
-# Register a DocType for automatic CRUD
-app.register_resource("Sales Order")
-
-# This automatically creates secure, tenant-isolated endpoints:
-# GET    /api/resource/sales-order        - List
-# POST   /api/resource/sales-order        - Create
-# GET    /api/resource/sales-order/{name} - Get
-# PUT    /api/resource/sales-order/{name} - Update
-# DELETE /api/resource/sales-order/{name} - Delete
-
-app.run()
-```
-
-## Configuration
-
-The framework uses environment variables for easy containerization:
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `FRAPPE_SITE` | The Frappe site name | |
-| `FRAPPE_SITES_PATH` | Path to the bench sites directory | |
-| `CENTRAL_SITE_URL` | URL of the Central Site for Auth | |
-| `DB_HOST` | Database host for the service | |
-| `SERVICE_PATH` | Directory containing service code (container entrypoint) | `/app/service` |
-| `SERVICE_APP` | App to run as `module:attr` (container entrypoint) | `server:app` |
-| `LOG_LEVEL` | Logging level (DEBUG, INFO, etc.) | `INFO` |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP Exporter URL | |
+- [Configuration](configuration.md) — every environment variable and kwarg
+- [Core Features](features.md) — controllers, hooks, background jobs, Swagger
+- [Tenancy](tenancy.md) — modes and the Central Site contract
+- [Security](security.md) — policy modes, authentication, SQL safety
+- [Architecture](architecture.md) — bounded context and isolation
