@@ -1,0 +1,1665 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../getting-started/">
+      
+      
+        <link rel="next" href="../tenancy/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Configuration - Frappe Microservice Framework</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#configuration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Frappe Microservice Framework" class="md-header__button md-logo" aria-label="Frappe Microservice Framework" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Frappe Microservice Framework
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Configuration
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+    
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/vyogotech/erpnext-microservices-lib" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vyogotech/erpnext-microservices-lib
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Getting Started
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Configuration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../tenancy/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Tenancy
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../features/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Core Features
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../security/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Security
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../observability/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Observability
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../ci-cd/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  CI/CD & Release
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../development/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Developer Guide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../dependency-slimming/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Dependency Slimming
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Frappe Microservice Framework" class="md-nav__button md-logo" aria-label="Frappe Microservice Framework" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    Frappe Microservice Framework
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/vyogotech/erpnext-microservices-lib" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    vyogotech/erpnext-microservices-lib
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-values-resolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How values resolve
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-policy-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security policy modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#site-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Site &amp; database
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#central-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Central Site
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-discovery-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service discovery &amp; container
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema sync
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background jobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logging-observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging &amp; observability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constructor-only-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constructor-only options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tenancy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tenancy
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ci-cd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI/CD & Release
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developer Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency-slimming/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Dependency Slimming
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-values-resolve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How values resolve
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tenancy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tenancy
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-policy-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Security policy modes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#site-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Site &amp; database
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#central-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Central Site
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#service-discovery-container" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service discovery &amp; container
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema sync
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#background-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background jobs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logging-observability" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging &amp; observability
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#gotchas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gotchas
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constructor-only-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constructor-only options
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="configuration">Configuration</h1>
+<p>Every option is an environment variable; many also have a
+<code>create_microservice(...)</code> keyword argument. <strong>The keyword argument wins over the
+environment variable, which wins over the default.</strong></p>
+<h2 id="how-values-resolve">How values resolve</h2>
+<p>Two helpers in <code>frappe_microservice/policy.py</code> parse configuration, and their
+empty-value handling is deliberate:</p>
+<p><strong>Boolean flags</strong> (<code>resolve_bool</code>) accept <code>1</code>, <code>true</code>, <code>yes</code>, <code>on</code>
+(case-insensitive). An <strong>unset or empty</strong> variable falls back to the default —
+so a Kubernetes <code>env:</code> entry with no value, or a missing ConfigMap key, cannot
+silently flip a security flag that defaults on. Any <em>other</em> non-empty string is
+read as false: <code>MULTI_TENANT=disabled</code> means off, not the default.</p>
+<p><strong>Tri-state modes</strong> (<code>resolve_mode</code>) accept <code>off</code>, <code>warn</code>, <code>enforce</code>. Unset falls
+back to the default silently; an unknown <em>or empty</em> value falls back with a
+logged warning rather than failing to boot.</p>
+<h2 id="tenancy">Tenancy</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Kwarg</th>
+<th>Values</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MULTI_TENANT</code></td>
+<td><code>multi_tenant</code></td>
+<td><code>1/true/yes/on</code></td>
+<td><strong>on</strong></td>
+<td>Master switch for tenant isolation. See <a href="../tenancy/">Tenancy</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="security-policy-modes">Security policy modes</h2>
+<p>See <a href="../security/">Security</a> for what each mode does and how to roll them out.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Kwarg</th>
+<th>Values</th>
+<th>Default</th>
+<th>2.0 default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PERMISSION_MODE</code></td>
+<td><code>permission_mode</code></td>
+<td><code>off\|warn\|enforce</code></td>
+<td><code>warn</code></td>
+<td><code>enforce</code></td>
+</tr>
+<tr>
+<td><code>CSRF_MODE</code></td>
+<td><code>csrf_mode</code></td>
+<td><code>off\|warn\|enforce</code></td>
+<td><code>warn</code></td>
+<td><code>enforce</code></td>
+</tr>
+<tr>
+<td><code>TENANT_STRICT</code></td>
+<td><code>tenant_strict</code></td>
+<td><code>off\|warn\|enforce</code></td>
+<td><code>warn</code></td>
+<td><code>enforce</code></td>
+</tr>
+<tr>
+<td><code>MASK_PERMISSION_ERRORS</code></td>
+<td><code>mask_permission_errors</code></td>
+<td><code>1/true/yes/on</code></td>
+<td>off</td>
+<td>on</td>
+</tr>
+<tr>
+<td><code>INTERNAL_SERVICE_TOKEN</code></td>
+<td>—</td>
+<td>secret</td>
+<td>unset (path disabled)</td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>INTERNAL_SERVICE_USER</code></td>
+<td>—</td>
+<td>username</td>
+<td><code>Administrator</code></td>
+<td>—</td>
+</tr>
+<tr>
+<td><code>ALLOW_CORS</code></td>
+<td>—</td>
+<td>origin string</td>
+<td><code>*</code> <strong>and a warning</strong></td>
+<td>explicit</td>
+</tr>
+</tbody>
+</table>
+<p><code>ALLOW_CORS</code> is written into <code>site_config.json</code>. An explicitly empty value is
+honoured as-is (effectively disabling CORS) rather than falling back to <code>*</code>.</p>
+<h2 id="site-database">Site &amp; database</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Kwarg</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FRAPPE_SITE</code></td>
+<td><code>frappe_site</code></td>
+<td><code>site1.local</code></td>
+<td>Frappe site name</td>
+</tr>
+<tr>
+<td><code>FRAPPE_SITES_PATH</code></td>
+<td><code>sites_path</code></td>
+<td><code>/app/sites</code></td>
+<td>Sites directory</td>
+</tr>
+<tr>
+<td><code>DB_HOST</code></td>
+<td><code>db_host</code></td>
+<td>unset</td>
+<td>Service database host</td>
+</tr>
+<tr>
+<td><code>DB_PORT</code></td>
+<td>—</td>
+<td><code>3306</code></td>
+<td>Port; ignored if <code>DB_HOST_PORT</code> is set</td>
+</tr>
+<tr>
+<td><code>DB_HOST_PORT</code></td>
+<td>—</td>
+<td>unset</td>
+<td>Kubernetes-style port; takes precedence</td>
+</tr>
+<tr>
+<td><code>DB_NAME</code></td>
+<td>—</td>
+<td>empty</td>
+<td>Database name</td>
+</tr>
+<tr>
+<td><code>DB_USER</code></td>
+<td>—</td>
+<td>falls back to <code>DB_NAME</code>, then <code>frappe</code></td>
+<td>Database user</td>
+</tr>
+<tr>
+<td><code>DB_PASSWORD</code></td>
+<td>—</td>
+<td><code>changeme</code></td>
+<td>Database password</td>
+</tr>
+<tr>
+<td><code>ENCRYPTION_KEY</code></td>
+<td>—</td>
+<td>unset</td>
+<td>Frappe <code>encryption_key</code>; overridden by <code>/secrets/encryption_key.txt</code> when present</td>
+</tr>
+<tr>
+<td><code>REDIS_HOST</code></td>
+<td>—</td>
+<td><code>localhost</code></td>
+<td>Base Redis host</td>
+</tr>
+<tr>
+<td><code>REDIS_PORT</code></td>
+<td>—</td>
+<td><code>6379</code></td>
+<td>Redis port</td>
+</tr>
+<tr>
+<td><code>REDIS_CACHE_HOST</code></td>
+<td>—</td>
+<td><code>REDIS_HOST</code></td>
+<td>Overrides the cache host only</td>
+</tr>
+<tr>
+<td><code>REDIS_QUEUE_HOST</code></td>
+<td>—</td>
+<td><code>REDIS_HOST</code></td>
+<td>Overrides the queue host only</td>
+</tr>
+<tr>
+<td><code>REDIS_NAMESPACE</code></td>
+<td>—</td>
+<td>unset (key omitted)</td>
+<td>Frappe <code>redis_namespace</code></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition warning">
+<p class="admonition-title">Set <code>FRAPPE_SITE</code> explicitly</p>
+<p>Left unset, the application initialises site <code>site1.local</code> while
+<code>site_config.json</code> is written under <code>dev.localhost</code>. The two only agree when
+you set <code>FRAPPE_SITE</code>. Always set it in a container.</p>
+</div>
+<h2 id="central-site">Central Site</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CENTRAL_SITE_URL</code></td>
+<td><code>http://central-site:8000</code></td>
+<td>Base URL of the Central Site</td>
+</tr>
+<tr>
+<td><code>CENTRAL_SITE_API_KEY</code></td>
+<td>unset</td>
+<td>API key (token auth)</td>
+</tr>
+<tr>
+<td><code>CENTRAL_SITE_API_SECRET</code></td>
+<td>unset</td>
+<td>API secret (token auth)</td>
+</tr>
+<tr>
+<td><code>CENTRAL_SITE_USER</code></td>
+<td>unset</td>
+<td>Username (password auth)</td>
+</tr>
+<tr>
+<td><code>CENTRAL_SITE_PASSWORD</code></td>
+<td>unset</td>
+<td>Password (password auth)</td>
+</tr>
+<tr>
+<td><code>CENTRAL_SITE_TIMEOUT</code></td>
+<td><code>10</code></td>
+<td><strong>Currently read but not applied</strong> to the client</td>
+</tr>
+</tbody>
+</table>
+<p>Use either the key/secret pair or the user/password pair.</p>
+<h2 id="service-discovery-container">Service discovery &amp; container</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SERVICE_PATH</code></td>
+<td><code>/app/service</code></td>
+<td>Service source root</td>
+</tr>
+<tr>
+<td><code>SERVICE_APP</code></td>
+<td><code>server:app</code></td>
+<td>WSGI target as <code>module:attr</code></td>
+</tr>
+<tr>
+<td><code>SERVICE_NAME</code></td>
+<td>empty</td>
+<td>Name used for the doctypes path, advisory lock and Redis namespace</td>
+</tr>
+<tr>
+<td><code>PORT</code></td>
+<td><code>8000</code></td>
+<td>Gunicorn bind port (read by the entrypoint, not by <code>MicroserviceApp</code>)</td>
+</tr>
+<tr>
+<td><code>GUNICORN_WORKERS</code></td>
+<td><code>4</code></td>
+<td>Worker processes</td>
+</tr>
+<tr>
+<td><code>GUNICORN_TIMEOUT</code></td>
+<td><code>120</code></td>
+<td>Worker timeout, seconds</td>
+</tr>
+</tbody>
+</table>
+<h2 id="schema-sync">Schema sync</h2>
+<p>At startup the entrypoint runs the DocType sync once, before Gunicorn forks
+workers; in dev (<code>app.run()</code>) it syncs lazily on the first request.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Values</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DOCTYPE_SYNC_MODE</code></td>
+<td><code>migrate\|create</code></td>
+<td><code>migrate</code></td>
+<td>Schema sync behaviour</td>
+</tr>
+<tr>
+<td><code>FIXTURE_SYNC_MODE</code></td>
+<td><code>strict\|soft</code></td>
+<td><code>strict</code></td>
+<td>Whether a failed fixture aborts startup</td>
+</tr>
+<tr>
+<td><code>DOCTYPES_PATH</code></td>
+<td>path</td>
+<td>derived from <code>SERVICE_PATH</code> / <code>SERVICE_NAME</code></td>
+<td>DocType JSON directory</td>
+</tr>
+<tr>
+<td><code>SERVICE_POST_PRESYNC</code></td>
+<td><code>module.attr</code></td>
+<td>unset</td>
+<td>Callable run after sync, inside the advisory lock</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>migrate</code></strong> (default) — create-if-missing <em>and</em> update-if-changed. Editing a
+  DocType JSON and restarting updates both <code>tabDocType</code> metadata and the SQL
+  table. It is <strong>additive only</strong>: columns are never dropped.</li>
+<li><strong><code>create</code></strong> — create-only, for operators who must not run DDL at startup.</li>
+</ul>
+<p><code>FIXTURE_SYNC_MODE=strict</code> is the default on purpose: a fixture is service-owned
+schema, so a failed import means the service is running against a schema it does
+not have. <code>soft</code> downgrades that to an error log and is intended for recovery.</p>
+<p>Concurrent replicas are safe — the sync takes a database advisory lock, and a
+replica that cannot acquire it within 120s skips rather than crashing. For an
+explicit migration step, <code>frappe-ms migrate</code> runs the same sync and suits a
+Kubernetes Job.</p>
+<h2 id="background-jobs">Background jobs</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Values</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ENABLE_RQ</code></td>
+<td><code>1/true/yes/on</code></td>
+<td>off</td>
+<td>Enable RQ and start the embedded worker</td>
+</tr>
+<tr>
+<td><code>REDIS_URL</code></td>
+<td>URL</td>
+<td><code>redis://localhost:6379</code></td>
+<td>Redis for the queue — <strong>separate from <code>REDIS_HOST</code></strong></td>
+</tr>
+<tr>
+<td><code>WORKER_MODE</code></td>
+<td>exactly <code>1</code></td>
+<td>unset</td>
+<td>Set up the queue but do not start the thread; run <code>frappe-ms worker</code> instead</td>
+</tr>
+<tr>
+<td><code>RQ_DEFAULT_JOB_TIMEOUT</code></td>
+<td>seconds</td>
+<td><code>-1</code> (none)</td>
+<td>Default job timeout</td>
+</tr>
+</tbody>
+</table>
+<h2 id="logging-observability">Logging &amp; observability</h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LOG_LEVEL</code></td>
+<td><code>INFO</code></td>
+<td>Library log level; an unrecognised name falls back to <code>INFO</code></td>
+</tr>
+<tr>
+<td><code>OTEL_EXPORTER_OTLP_ENDPOINT</code></td>
+<td>unset (tracing off)</td>
+<td>OTLP collector endpoint</td>
+</tr>
+<tr>
+<td><code>FRAPPE_STREAM_LOGGING</code></td>
+<td><code>1</code></td>
+<td>Stream Frappe logs to stderr instead of files</td>
+</tr>
+<tr>
+<td><code>DEBUG</code></td>
+<td>unset</td>
+<td>Include exception detail in <code>500</code> bodies. Must be exactly <code>1</code></td>
+</tr>
+</tbody>
+</table>
+<p>The library forces <code>FRAPPE_STREAM_LOGGING=1</code> at import. Frappe's file handlers
+resolve paths relative to the process working directory — a bench-era assumption
+that crashes with <code>FileNotFoundError: .../logs/database.log</code> under a container
+<code>WORKDIR</code> or a read-only root filesystem. To opt back into file logs, set
+<code>FRAPPE_STREAM_LOGGING=""</code> <em>before</em> importing the library.</p>
+<p>Under <code>readOnlyRootFilesystem: true</code>, the <strong>sites directory must stay writable</strong> —
+<code>site_config.json</code> is written there. Mount an <code>emptyDir</code> for it.</p>
+<h2 id="gotchas">Gotchas</h2>
+<p>A few options do not follow the general rules. These are accurate as of this
+version:</p>
+<ul>
+<li><strong><code>WORKER_MODE</code> and <code>DEBUG</code> require exactly the string <code>1</code>.</strong> Unlike the
+  boolean flags, <code>true</code> / <code>yes</code> / <code>on</code> silently do nothing.</li>
+<li><strong><code>RQ_DEFAULT_JOB_TIMEOUT=""</code> and <code>CENTRAL_SITE_TIMEOUT=""</code> raise <code>ValueError</code>.</strong>
+  The database and Redis port helpers guard against empty values; these two do
+  not. Leave them unset rather than empty.</li>
+<li><strong><code>CENTRAL_SITE_TIMEOUT</code> has no effect</strong> — it is read but never applied to the
+  client.</li>
+<li><strong><code>LOAD_FRAMEWORK_HOOKS</code> only affects the presync path</strong>, not
+  <code>MicroserviceApp</code>, and the two default differently (<code>[]</code> versus
+  <code>["frappe", "erpnext"]</code>). Prefer the <code>load_framework_hooks</code> kwarg, which
+  accepts a list of app names or one of <code>"full"</code>, <code>"frappe-only"</code>, <code>"none"</code>.</li>
+</ul>
+<h2 id="constructor-only-options">Constructor-only options</h2>
+<p>These have no environment variable:</p>
+<table>
+<thead>
+<tr>
+<th>Kwarg</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code> (positional)</td>
+<td>required</td>
+<td>Flask app name, RQ queue name, Redis namespace, OTel service name</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td><code>8000</code></td>
+<td>Dev-server port for <code>run()</code></td>
+</tr>
+<tr>
+<td><code>tenant_field</code></td>
+<td><code>tenant_id</code></td>
+<td>Tenant column name</td>
+</tr>
+<tr>
+<td><code>get_tenant_id_func</code></td>
+<td><code>None</code></td>
+<td>Custom tenant resolver</td>
+</tr>
+<tr>
+<td><code>doctypes_path</code></td>
+<td><code>None</code></td>
+<td>DocType JSON directory</td>
+</tr>
+<tr>
+<td><code>fixtures_path</code></td>
+<td><code>$SERVICE_PATH/fixtures</code> if present</td>
+<td>Fixture directory</td>
+</tr>
+<tr>
+<td><code>controllers_path</code></td>
+<td><code>$SERVICE_PATH/controllers</code> if present</td>
+<td>Controller discovery root</td>
+</tr>
+<tr>
+<td><code>load_framework_hooks</code></td>
+<td><code>["frappe", "erpnext"]</code></td>
+<td>Framework apps whose hooks may load</td>
+</tr>
+</tbody>
+</table>
+<h2 id="example">Example</h2>
+<p>A starting point for a container deployment — see
+<a href="https://github.com/vyogotech/erpnext-microservices-lib/blob/main/.env.example"><code>.env.example</code></a>
+for the annotated version:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">FRAPPE_SITE</span><span class="o">=</span>dev.localhost
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">FRAPPE_SITES_PATH</span><span class="o">=</span>/app/sites
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="nv">DB_HOST</span><span class="o">=</span>orders-db
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="nv">DB_NAME</span><span class="o">=</span>orders_db
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nv">REDIS_HOST</span><span class="o">=</span>redis
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="nv">CENTRAL_SITE_URL</span><span class="o">=</span>http://central-site:8000
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="nv">CENTRAL_SITE_API_KEY</span><span class="o">=</span>...
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="nv">CENTRAL_SITE_API_SECRET</span><span class="o">=</span>...
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="nv">MULTI_TENANT</span><span class="o">=</span><span class="m">1</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="nv">TENANT_STRICT</span><span class="o">=</span>warn
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="nv">PERMISSION_MODE</span><span class="o">=</span>warn
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nv">CSRF_MODE</span><span class="o">=</span>warn
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nv">ALLOW_CORS</span><span class="o">=</span>https://app.example.com
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="nv">SERVICE_PATH</span><span class="o">=</span>/app/service
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="nv">SERVICE_APP</span><span class="o">=</span>server:app
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nv">DOCTYPE_SYNC_MODE</span><span class="o">=</span>migrate
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "content.code.copy", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
