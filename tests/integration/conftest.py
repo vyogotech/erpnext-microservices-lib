@@ -105,6 +105,18 @@ def _ensure_test_user(email, tenant_id, roles=None):
     if roles is None:
         roles = TENANT_USER_ROLES
 
+    # Frappe v16 deprecated Notification Type Preference, which breaks User after_insert
+    try:
+        import frappe.core.doctype.user.user as user_mod
+        user_mod.create_notification_settings = lambda *a, **kw: None
+    except Exception:
+        pass
+    try:
+        import frappe.desk.doctype.notification_settings.notification_settings as ns_mod
+        ns_mod.create_notification_settings = lambda *a, **kw: None
+    except Exception:
+        pass
+
     if not frappe.db.exists("User", email):
         frappe.get_doc(
             {
@@ -175,6 +187,18 @@ def frappe_session():
     frappe.connect()
     frappe.set_user("Administrator")
     frappe.flags.in_test = True
+
+    # Frappe v16 deprecated Notification Type Preference, which breaks User after_insert
+    try:
+        import frappe.core.doctype.user.user as user_mod
+        user_mod.create_notification_settings = lambda *a, **kw: None
+    except Exception:
+        pass
+    try:
+        import frappe.desk.doctype.notification_settings.notification_settings as ns_mod
+        ns_mod.create_notification_settings = lambda *a, **kw: None
+    except Exception:
+        pass
 
     for dt in (
         "Purchase Invoice",
