@@ -222,6 +222,8 @@ def patch_valid_dict_for_tenant_id(get_tenant_id_func=None, multi_tenant=None):
 
     def _patched_get_valid_dict(self, *args, **kwargs):
         d = original_get_valid_dict(self, *args, **kwargs)
+        if not _should_stamp_tenant_id(self):
+            return d
         tenant_id = getattr(self, "tenant_id", None)
 
         provider = getattr(BaseDocument, "_tenant_id_provider", None)
@@ -272,7 +274,7 @@ def patch_valid_dict_for_tenant_id(get_tenant_id_func=None, multi_tenant=None):
             tenant_id = request_tenant_id
             self.tenant_id = request_tenant_id
 
-        if tenant_id and _should_stamp_tenant_id(self):
+        if tenant_id:
             d["tenant_id"] = tenant_id
         return d
 
