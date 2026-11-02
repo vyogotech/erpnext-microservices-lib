@@ -346,6 +346,10 @@ def _ensure_module_def_record(module_name: str, app_name: str, logger=None):
 
 def _import_doc_suppressing_cache_reset(doc: dict):
     """Import a DocType document without triggering reset_metadata_version."""
+    import importlib
+
+    # Frappe >= 16.53: submodule is not imported implicitly.
+    importlib.import_module("frappe.modules.import_file")
     with suppress_metadata_version_reset():
         frappe.modules.import_file.import_doc(
             doc,
