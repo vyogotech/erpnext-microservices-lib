@@ -449,6 +449,19 @@ class MicroserviceApp(IsolationMixin, AuthMixin, ResourceMixin, BackgroundTaskMi
 
         self._patch_version_session_data()
 
+        # Pre-import Frappe DB modules on the main thread before Gunicorn forks
+        # workers or any background thread starts, so lazy imports inside
+        # frappe.connect() never contend on an import lock across fork().
+        # NOTE: use importlib — a plain `import frappe.x` here would make
+        # `frappe` a local name for this whole function (UnboundLocalError).
+        import importlib
+
+        for _mod in ("frappe.database.mariadb.database", "frappe.database.query"):
+            try:
+                importlib.import_module(_mod)
+            except Exception as e:
+                self.logger.debug("Pre-import of %s skipped: %s", _mod, e)
+
         self._frappe_local_base = _contextvar.get()
         self._main_pid = os.getpid()
         self.logger.info("Frappe initialized at startup (DB deferred to first request)")
