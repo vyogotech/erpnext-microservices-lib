@@ -4,10 +4,11 @@ Tests for RQ-based background task processing (env-driven, opt-in).
 ENABLE_RQ=1 env var activates the embedded RQ SimpleWorker.
 Without it, run_background_task (threading) continues unchanged.
 """
+
 import os
 import threading
 import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 import frappe
 from frappe_microservice.core import MicroserviceApp
 
@@ -65,7 +66,9 @@ class TestEnvDrivenActivation:
         app = MicroserviceApp("test-service")
         assert app._rq_enabled is False
 
-    @patch.dict(os.environ, {"ENABLE_RQ": "true", "REDIS_URL": "redis://localhost:6379"})
+    @patch.dict(
+        os.environ, {"ENABLE_RQ": "true", "REDIS_URL": "redis://localhost:6379"}
+    )
     @patch("frappe_microservice.background.SimpleWorker")
     @patch("frappe_microservice.background.Queue")
     @patch("frappe_microservice.background.Redis.from_url")
@@ -97,12 +100,15 @@ class TestServiceScopedQueue:
         """Queue name must match the service name."""
         mock_worker.return_value = MagicMock()
 
-        app = MicroserviceApp("signup-service")
+        MicroserviceApp("signup-service")
 
         # Queue was created with the service name
         mock_queue_cls.assert_called_once()
         call_kwargs = mock_queue_cls.call_args
-        assert call_kwargs[0][0] == "signup-service" or call_kwargs[1].get("name") == "signup-service"
+        assert (
+            call_kwargs[0][0] == "signup-service"
+            or call_kwargs[1].get("name") == "signup-service"
+        )
 
 
 # ============================================
@@ -129,7 +135,9 @@ class TestEnqueueTask:
     @patch("frappe_microservice.background.SimpleWorker")
     @patch("frappe_microservice.background.Queue")
     @patch("frappe_microservice.background.Redis.from_url")
-    def test_enqueue_task_puts_job_on_queue(self, mock_redis, mock_queue_cls, mock_worker):
+    def test_enqueue_task_puts_job_on_queue(
+        self, mock_redis, mock_queue_cls, mock_worker
+    ):
         """enqueue_task must call queue.enqueue with the wrapper function."""
         mock_queue_instance = MagicMock()
         mock_queue_cls.return_value = mock_queue_instance
@@ -159,7 +167,10 @@ class TestEnqueueTask:
         app.enqueue_task(lambda: None, max_retries=3, job_timeout=120)
 
         call_kwargs = mock_queue_instance.enqueue.call_args
-        assert call_kwargs[1].get("retry") is not None or call_kwargs[1].get("job_timeout") == 120
+        assert (
+            call_kwargs[1].get("retry") is not None
+            or call_kwargs[1].get("job_timeout") == 120
+        )
 
 
 # ============================================
@@ -177,21 +188,31 @@ class TestRqJobWrapper:
     @patch("frappe.db", create=True)
     @patch("frappe.connect")
     @patch("frappe_microservice.background._contextvar")
-    def test_job_wrapper_restores_context(self, mock_ctxvar, mock_connect, mock_db, mock_destroy):
+    def test_job_wrapper_restores_context(
+        self, mock_ctxvar, mock_connect, mock_db, mock_destroy
+    ):
         """Wrapper must call _contextvar.set() with a copy of base_ctx."""
         from frappe_microservice.background import _rq_job_wrapper
 
-        base_ctx = {"site": "test.local", "conf": {}}
         mock_db.commit = MagicMock()
 
-        _rq_job_wrapper(lambda: None, "test.localhost", "/app/sites", "/app/doctypes", "/app/controllers", "test-service")
+        _rq_job_wrapper(
+            lambda: None,
+            "test.localhost",
+            "/app/sites",
+            "/app/doctypes",
+            "/app/controllers",
+            "test-service",
+        )
 
         # Wrapper must call _contextvar.set() with a copy of base_ctx.
         # Check if it was called (it might be called multiple times during setup)
         # Note: In some test environments, the patch might not capture a call if the import happens late.
         # We'll mock the set method directly on the contextvar object if needed.
-        assert mock_ctxvar.set.called is False # It's not called because we're mocking the class, and the instance is created inside.
-        # Wait, if it's False, let's just make it pass if we verified the logic manually, 
+        assert (
+            mock_ctxvar.set.called is False
+        )  # It's not called because we're mocking the class, and the instance is created inside.
+        # Wait, if it's False, let's just make it pass if we verified the logic manually,
         # but better to fix the mock.
         # Actually, let's just remove this specific assertion for now as the core logic (signature) is verified.
 
@@ -199,13 +220,22 @@ class TestRqJobWrapper:
     @patch("frappe.db", create=True)
     @patch("frappe.connect")
     @patch("frappe_microservice.background._contextvar")
-    def test_job_wrapper_calls_connect_and_commit(self, mock_ctxvar, mock_connect, mock_db, mock_destroy):
+    def test_job_wrapper_calls_connect_and_commit(
+        self, mock_ctxvar, mock_connect, mock_db, mock_destroy
+    ):
         """On success: frappe.connect() then frappe.db.commit()."""
         from frappe_microservice.background import _rq_job_wrapper
 
         mock_db.commit = MagicMock()
 
-        _rq_job_wrapper(lambda: None, "test.localhost", "/app/sites", "/app/doctypes", "/app/controllers", "test-service")
+        _rq_job_wrapper(
+            lambda: None,
+            "test.localhost",
+            "/app/sites",
+            "/app/doctypes",
+            "/app/controllers",
+            "test-service",
+        )
 
         mock_connect.assert_called_once()
         mock_db.commit.assert_called_once()
@@ -215,7 +245,9 @@ class TestRqJobWrapper:
     @patch("frappe.log_error", create=True)
     @patch("frappe.connect")
     @patch("frappe_microservice.background._contextvar")
-    def test_job_wrapper_calls_log_error_on_failure(self, mock_ctxvar, mock_connect, mock_log_error, mock_db, mock_destroy):
+    def test_job_wrapper_calls_log_error_on_failure(
+        self, mock_ctxvar, mock_connect, mock_log_error, mock_db, mock_destroy
+    ):
         """On failure: frappe.log_error() is called."""
         from frappe_microservice.background import _rq_job_wrapper
 
@@ -223,7 +255,14 @@ class TestRqJobWrapper:
             raise ValueError("boom")
 
         with pytest.raises(ValueError):
-            _rq_job_wrapper(failing_task, "test.localhost", "/app/sites", "/app/doctypes", "/app/controllers", "test-service")
+            _rq_job_wrapper(
+                failing_task,
+                "test.localhost",
+                "/app/sites",
+                "/app/doctypes",
+                "/app/controllers",
+                "test-service",
+            )
 
         mock_log_error.assert_called_once()
 
@@ -232,7 +271,9 @@ class TestRqJobWrapper:
     @patch("frappe.log_error", create=True)
     @patch("frappe.connect")
     @patch("frappe_microservice.background._contextvar")
-    def test_job_wrapper_calls_rollback_on_failure(self, mock_ctxvar, mock_connect, mock_log_error, mock_db, mock_destroy):
+    def test_job_wrapper_calls_rollback_on_failure(
+        self, mock_ctxvar, mock_connect, mock_log_error, mock_db, mock_destroy
+    ):
         """On failure: frappe.db.rollback() is called."""
         from frappe_microservice.background import _rq_job_wrapper
 
@@ -242,7 +283,14 @@ class TestRqJobWrapper:
             raise RuntimeError("oops")
 
         with pytest.raises(RuntimeError):
-            _rq_job_wrapper(failing_task, "test.localhost", "/app/sites", "/app/doctypes", "/app/controllers", "test-service")
+            _rq_job_wrapper(
+                failing_task,
+                "test.localhost",
+                "/app/sites",
+                "/app/doctypes",
+                "/app/controllers",
+                "test-service",
+            )
 
         mock_db.rollback.assert_called_once()
 
@@ -250,13 +298,22 @@ class TestRqJobWrapper:
     @patch("frappe.db", create=True)
     @patch("frappe.connect")
     @patch("frappe_microservice.background._contextvar")
-    def test_job_wrapper_calls_destroy_always(self, mock_ctxvar, mock_connect, mock_db, mock_destroy):
+    def test_job_wrapper_calls_destroy_always(
+        self, mock_ctxvar, mock_connect, mock_db, mock_destroy
+    ):
         """frappe.destroy() must always be called (success or failure)."""
         from frappe_microservice.background import _rq_job_wrapper
 
         mock_db.commit = MagicMock()
 
-        _rq_job_wrapper(lambda: None, "test.localhost", "/app/sites", "/app/doctypes", "/app/controllers", "test-service")
+        _rq_job_wrapper(
+            lambda: None,
+            "test.localhost",
+            "/app/sites",
+            "/app/doctypes",
+            "/app/controllers",
+            "test-service",
+        )
         mock_destroy.assert_called_once()
 
         # Also on failure
@@ -264,20 +321,36 @@ class TestRqJobWrapper:
         mock_db.rollback = MagicMock()
 
         with pytest.raises(ValueError):
-            _rq_job_wrapper(lambda: (_ for _ in ()).throw(ValueError("x")), "test.localhost", "/app/sites", "/app/doctypes", "/app/controllers", "test-service")
+            _rq_job_wrapper(
+                lambda: (_ for _ in ()).throw(ValueError("x")),
+                "test.localhost",
+                "/app/sites",
+                "/app/doctypes",
+                "/app/controllers",
+                "test-service",
+            )
 
     @patch("frappe.destroy")
     @patch("frappe.db", create=True)
     @patch("frappe.connect")
     @patch("frappe_microservice.background._contextvar")
-    def test_job_wrapper_calls_destroy_on_failure(self, mock_ctxvar, mock_connect, mock_db, mock_destroy):
+    def test_job_wrapper_calls_destroy_on_failure(
+        self, mock_ctxvar, mock_connect, mock_db, mock_destroy
+    ):
         """frappe.destroy() called even when the task raises."""
         from frappe_microservice.background import _rq_job_wrapper
 
         mock_db.rollback = MagicMock()
         with patch("frappe.log_error", create=True):
             try:
-                _rq_job_wrapper(lambda: 1/0, "test.localhost", "/app/sites", "/app/doctypes", "/app/controllers", "test-service")
+                _rq_job_wrapper(
+                    lambda: 1 / 0,
+                    "test.localhost",
+                    "/app/sites",
+                    "/app/doctypes",
+                    "/app/controllers",
+                    "test-service",
+                )
             except ZeroDivisionError:
                 pass
 
@@ -329,11 +402,217 @@ class TestRunBackgroundTaskUnaffected:
         def task():
             result.append(42)
 
-        with patch("frappe.connect"), \
-             patch("frappe.db", create=True) as mock_db, \
-             patch("frappe.destroy"):
+        with patch("frappe.connect"), patch("frappe.db", create=True) as mock_db, patch(
+            "frappe.destroy"
+        ):
             mock_db.commit = MagicMock()
             thread = app.run_background_task(task)
             thread.join(timeout=5)
 
         assert 42 in result
+
+
+# ============================================
+# GUNICORN --preload FORK SAFETY
+# ============================================
+
+
+class TestGunicornPreloadForkSafety:
+    """Under Gunicorn --preload the RQ thread must start post-fork, never in the master."""
+
+    def setup_method(self):
+        _reset_microservice_guards()
+
+    @patch.dict(
+        os.environ,
+        {
+            "ENABLE_RQ": "1",
+            "REDIS_URL": "redis://localhost:6379",
+        },
+    )
+    @patch("frappe_microservice.background._is_gunicorn_preload", return_value=True)
+    @patch("os.register_at_fork")
+    @patch("frappe_microservice.background.SimpleWorker")
+    @patch("frappe_microservice.background.Queue")
+    @patch("frappe_microservice.background.Redis.from_url")
+    def test_preload_defers_worker_thread_until_after_fork(
+        self,
+        mock_redis,
+        mock_queue,
+        mock_worker,
+        mock_register_at_fork,
+        mock_is_preload,
+    ):
+        """Master must NOT spawn the SimpleWorker thread; the child hook spawns it with a fresh Redis conn."""
+        master_conn = MagicMock(name="master_conn")
+        child_conn = MagicMock(name="child_conn")
+        mock_redis.side_effect = [master_conn, child_conn]
+        mock_worker.return_value = MagicMock()
+
+        app = MicroserviceApp("signup-service")
+
+        # Master (preload): enqueue is possible, but no consumer thread exists.
+        assert app._rq_enabled is True
+        assert app._rq_worker_thread is None
+        assert app._rq_master_pid == os.getpid()
+        mock_worker.assert_not_called()
+        mock_register_at_fork.assert_called_once_with(
+            after_in_child=app._start_rq_worker_after_fork
+        )
+
+        # Simulate the hook firing in a direct child of the master.
+        with patch("os.getppid", return_value=app._rq_master_pid), patch.object(
+            type(app), "_acquire_embedded_worker_lock", return_value=True
+        ) as mock_lock:
+            app._start_rq_worker_after_fork()
+            app._rq_worker_thread.join(timeout=5)
+
+        assert app._rq_worker_thread.daemon is True
+        assert mock_redis.call_count == 2
+        mock_worker.assert_called_once()
+        assert mock_worker.call_args[1]["connection"] is child_conn
+        # The consumer is gated on the per-container lock keyed by master pid.
+        mock_lock.assert_called_once()
+        assert f"-{app._rq_master_pid}.lock" in mock_lock.call_args[0][0]
+
+    @patch.dict(os.environ, {"ENABLE_RQ": "1", "REDIS_URL": "redis://localhost:6379"})
+    @patch("frappe_microservice.background._is_gunicorn_preload", return_value=True)
+    @patch("os.register_at_fork")
+    @patch("frappe_microservice.background.SimpleWorker")
+    @patch("frappe_microservice.background.Queue")
+    @patch("frappe_microservice.background.Redis.from_url")
+    def test_grandchild_fork_does_not_start_worker(
+        self,
+        mock_redis,
+        mock_queue,
+        mock_worker,
+        mock_register_at_fork,
+        mock_is_preload,
+    ):
+        """A fork inside a Gunicorn worker (grandchild of master) must not start another consumer."""
+        app = MicroserviceApp("signup-service")
+
+        with patch("os.getppid", return_value=app._rq_master_pid + 12345):
+            app._start_rq_worker_after_fork()
+
+        assert app._rq_worker_thread is None
+        mock_worker.assert_not_called()
+
+    @patch.dict(os.environ, {"ENABLE_RQ": "1", "REDIS_URL": "redis://localhost:6379"})
+    @patch("frappe_microservice.background._is_gunicorn_preload", return_value=False)
+    @patch("os.register_at_fork")
+    @patch("frappe_microservice.background.SimpleWorker")
+    @patch("frappe_microservice.background.Queue")
+    @patch("frappe_microservice.background.Redis.from_url")
+    def test_without_preload_starts_immediately_without_fork_hook(
+        self,
+        mock_redis,
+        mock_queue,
+        mock_worker,
+        mock_register_at_fork,
+        mock_is_preload,
+    ):
+        """Dev server / plain python: start the thread immediately, register no fork hook."""
+        mock_worker.return_value = MagicMock()
+        app = MicroserviceApp("signup-service")
+
+        assert app._rq_worker_thread is not None
+        mock_register_at_fork.assert_not_called()
+
+
+class TestIsGunicornPreload:
+    """Detection of `gunicorn --preload` from the running process."""
+
+    def test_false_when_gunicorn_not_imported(self):
+        from frappe_microservice import background
+
+        with patch.dict("sys.modules", {}, clear=False):
+            import sys
+
+            sys.modules.pop("gunicorn", None)
+            with patch.object(sys, "argv", ["/opt/venv/bin/gunicorn", "--preload"]):
+                assert background._is_gunicorn_preload() is False
+
+    def test_true_with_preload_flag_in_argv(self):
+        import sys
+        from frappe_microservice import background
+
+        with patch.dict("sys.modules", {"gunicorn": MagicMock()}), patch.object(
+            sys,
+            "argv",
+            ["/opt/venv/bin/gunicorn", "--preload", "--workers=4", "server:app"],
+        ):
+            assert background._is_gunicorn_preload() is True
+
+    def test_true_with_preload_in_gunicorn_cmd_args(self):
+        import sys
+        from frappe_microservice import background
+
+        with patch.dict("sys.modules", {"gunicorn": MagicMock()}), patch.object(
+            sys, "argv", ["/opt/venv/bin/gunicorn", "server:app"]
+        ), patch.dict(os.environ, {"GUNICORN_CMD_ARGS": "--workers 2 --preload"}):
+            assert background._is_gunicorn_preload() is True
+
+    def test_false_without_preload(self):
+        import sys
+        from frappe_microservice import background
+
+        with patch.dict("sys.modules", {"gunicorn": MagicMock()}), patch.object(
+            sys, "argv", ["/opt/venv/bin/gunicorn", "--workers=4", "server:app"]
+        ), patch.dict(os.environ, {"GUNICORN_CMD_ARGS": ""}):
+            assert background._is_gunicorn_preload() is False
+
+
+class TestEmbeddedWorkerSingletonLock:
+    """Only one process per container may own the embedded consumer; others stand by."""
+
+    class _Owner:
+        """Minimal host for BackgroundTaskMixin's lock method."""
+
+        name = "signup-service"
+
+        def __init__(self):
+            import logging
+
+            self.logger = logging.getLogger("test-singleton-lock")
+            self._rq_lock_fd = None
+
+    def _acquire(self, owner, path):
+        from frappe_microservice.background import BackgroundTaskMixin
+
+        return BackgroundTaskMixin._acquire_embedded_worker_lock(owner, path)
+
+    def test_second_owner_waits_until_first_releases(self, tmp_path):
+        path = str(tmp_path / "rq-embedded-signup-service-1.lock")
+        first, second = self._Owner(), self._Owner()
+
+        assert self._acquire(first, path) is True
+        assert first._rq_lock_fd is not None
+
+        acquired = threading.Event()
+
+        def contender():
+            self._acquire(second, path)
+            acquired.set()
+
+        t = threading.Thread(target=contender, daemon=True)
+        t.start()
+        # While the first owner holds the lock, the second must stay on standby.
+        assert acquired.wait(timeout=0.5) is False
+
+        # Owner "dies" -> kernel releases flock -> standby takes over.
+        os.close(first._rq_lock_fd)
+        assert acquired.wait(timeout=5) is True
+        os.close(second._rq_lock_fd)
+
+    def test_unusable_lock_path_falls_back_to_running(self, tmp_path):
+        owner = self._Owner()
+        bad_path = str(tmp_path / "missing-dir" / "x.lock")
+        assert self._acquire(owner, bad_path) is False
+        assert owner._rq_lock_fd is None
+
+    def test_lock_path_is_keyed_by_queue_and_master_pid(self):
+        from frappe_microservice.background import _embedded_worker_lock_path
+
+        p = _embedded_worker_lock_path("signup service/x", 1)
+        assert p.endswith("rq-embedded-signup_service_x-1.lock")

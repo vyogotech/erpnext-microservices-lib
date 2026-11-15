@@ -674,6 +674,34 @@ class TestPatchValidDictForTenantId:
         finally:
             BaseDocument.get_valid_dict = original_fn
 
+    @patch("frappe.db.get_value", create=True)
+    def test_patch_skips_global_schema_child_rows_under_tenant_request(
+        self, mock_get_value
+    ):
+        """DocField (child of DocType with tenant_id='SYSTEM') must not raise TenantAccessError during a tenant request."""
+        from frappe.model.base_document import BaseDocument
+        from frappe_microservice.tenant import patch_valid_dict_for_tenant_id
+
+        BaseDocument._tenant_valid_dict_patched = False
+        original_fn = BaseDocument.get_valid_dict
+        BaseDocument.get_valid_dict = lambda self, *a, **kw: {"fieldname": "date"}
+        mock_get_value.return_value = "SYSTEM"
+
+        try:
+            patch_valid_dict_for_tenant_id(lambda: "tenant-abc")
+
+            docfield = self._make_row("DocField")
+            docfield.tenant_id = "SYSTEM"
+            docfield.parent = "Bank Transaction"
+            docfield.parenttype = "DocType"
+
+            result = BaseDocument.get_valid_dict(docfield)
+            assert "tenant_id" not in result
+            assert docfield.tenant_id == "SYSTEM"
+            mock_get_value.assert_not_called()
+        finally:
+            BaseDocument.get_valid_dict = original_fn
+
     def test_patch_skips_single_doctypes(self):
         """Singles are excluded from the tenant_id ALTER (issingle: 0 filter).
 

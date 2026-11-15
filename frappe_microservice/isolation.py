@@ -105,6 +105,16 @@ def apply_controller_patch():
     if getattr(frappe, "_microservice_controller_patched", False):
         return
 
+    # Frappe >= 16.53 no longer imports these submodules as a side effect of
+    # `import frappe` / `import frappe.model`, so `frappe.model.base_document`
+    # raised AttributeError during presync. Import them explicitly (importlib,
+    # so `frappe` is not rebound as a function-local name) before setting the
+    # patched flag, so a failure here can't leave the patch marked as applied.
+    import importlib
+
+    for _mod in ("frappe.model.base_document", "frappe.model.document"):
+        importlib.import_module(_mod)
+
     frappe._microservice_controller_patched = True
 
     original_import_controller = frappe.model.base_document.import_controller
@@ -366,9 +376,7 @@ def patch_load_app_hooks(allowed_apps, logger=None):
         frappe._microservice_load_app_hooks_patched = True
         if hasattr(frappe, "client_cache") and frappe.client_cache:
             frappe.client_cache.delete_value("app_hooks")
-        logger.info(
-            "Patched _load_app_hooks to skip apps without a hooks module"
-        )
+        logger.info("Patched _load_app_hooks to skip apps without a hooks module")
 
 
 class IsolationMixin:
@@ -841,6 +849,10 @@ class IsolationMixin:
         We suppress only reset_metadata_version — the DocType-specific cache keys
         are still cleared so the service itself stays consistent.
         """
+        import importlib
+
+        # Frappe >= 16.53: submodule is not imported implicitly.
+        importlib.import_module("frappe.modules.import_file")
         with _suppress_metadata_version_reset():
             frappe.modules.import_file.import_doc(
                 doc,

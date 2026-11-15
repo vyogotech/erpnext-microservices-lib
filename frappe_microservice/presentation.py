@@ -102,6 +102,12 @@ def _collect(
             _collect(row, child_doctype, wanted, targets, depth + 1)
 
 
+def _strip_tenant_prefix(val: str) -> str:
+    if val and "-" in val and len(val.split("-")[0]) == 8:
+        return val.split("-", 1)[1].strip()
+    return val
+
+
 def _labels_for(target_doctype: str, docnames, tenant_db) -> dict:
     label_field = FIELD_AUTONAMED_MASTER_DOCTYPES[target_doctype][0]
     names = sorted(docnames)
@@ -121,9 +127,14 @@ def _labels_for(target_doctype: str, docnames, tenant_db) -> dict:
     labels = {}
     for row in rows:
         docname = str(_get(row, "name") or "").strip()
-        label = str(_get(row, label_field) or "").strip()
+        label = _strip_tenant_prefix(str(_get(row, label_field) or "").strip())
         if docname and label:
             labels[docname] = label
+    for docname in names:
+        if docname not in labels:
+            stripped = _strip_tenant_prefix(docname)
+            if stripped != docname:
+                labels[docname] = stripped
     return labels
 
 
